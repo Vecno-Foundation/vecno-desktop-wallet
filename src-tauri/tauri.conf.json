@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "vecno-wallet",
+  "version": "0.1.0",
+  "identifier": "com.yoshiki.vecno-wallet",
+  "build": {
+    "beforeDevCommand": "trunk serve",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "trunk build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "vecno-wallet",
+        "width": 1200,
+        "height": 600,
+        "resizable": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "favicon.ico"
+    ]
+  }
+}

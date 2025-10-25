@@ -1,0 +1,19 @@
+[build]
+target = "./index.html"
+no_sri = true
+dist = "dist"
+
+[[build.assets]]
+kind = "css"
+path = "index.css"
+
+[[build.assets]]
+kind = "icon"
+path = "public/favicon.ico"
+
+[watch]
+ignore = ["./src-tauri"]
+
+[serve]
+port = 1420
+open = false
