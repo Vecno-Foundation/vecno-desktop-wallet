@@ -5,10 +5,6 @@ description = "A Vecno Wallet App"
 authors = ["you"]
 edition = "2021"
 
-[lib]
-name = "vecno_wallet_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
 # Build dependencies
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

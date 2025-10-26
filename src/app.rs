@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 use web_sys::{HtmlInputElement, HtmlSelectElement, BeforeUnloadEvent};
-use log::{error, info};
+use log::{error, info, debug};
 
 #[wasm_bindgen]
 extern "C" {
@@ -11,7 +11,7 @@ extern "C" {
     async fn invoke(cmd: &str, args: JsValue) -> JsValue;
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 struct WalletAddress {
     account_name: String,
     account_index: u32,
@@ -59,6 +59,16 @@ struct Transaction {
     timestamp: String,
 }
 
+#[derive(Serialize, Deserialize)]
+struct ErrorResponse {
+    error: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct NodeInfo {
+    url: String,
+}
+
 #[derive(Clone, PartialEq)]
 enum Screen {
     Intro,
@@ -69,18 +79,24 @@ enum Screen {
     Transactions,
 }
 
-// Helper function to validate filename
 fn is_valid_filename(filename: &str) -> bool {
     let invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
     !filename.is_empty() && !filename.contains(&invalid_chars[..]) && filename.len() <= 255
 }
 
-// Helper function to validate password for creation/import
 fn is_valid_password(secret: &str) -> bool {
-    secret.len() >= 8 // Minimum 8 characters for basic security
+    secret.len() >= 8
 }
 
-// Helper function to clear status messages after a delay
+fn format_balance(balance: u64) -> String {
+    if balance == 0 {
+        "Balance: 0 VE".to_string()
+    } else {
+        let ve = balance as f64 / 100_000_000.0; // Convert to VE (8 decimals)
+        format!("Balance: {:.8} VE", ve)
+    }
+}
+
 fn clear_status_after_delay(status: UseStateHandle<String>, delay_ms: u64) {
     let status = status.clone();
     spawn_local(async move {
@@ -96,6 +112,97 @@ fn clear_status_after_delay(status: UseStateHandle<String>, delay_ms: u64) {
     });
 }
 
+async fn fetch_balance(
+    addresses: UseStateHandle<Vec<WalletAddress>>,
+    balance: UseStateHandle<String>,
+    _wallet_status: UseStateHandle<String>,
+    is_loading: UseStateHandle<bool>,
+) {
+    if (*addresses).is_empty() {
+        error!("No valid address found for balance query");
+        balance.set("Balance: No valid address available".to_string());
+        clear_status_after_delay(balance.clone(), 5000);
+        is_loading.set(false);
+        return;
+    }
+    let address = (*addresses)
+        .first()
+        .map(|addr| addr.receive_address.clone())
+        .unwrap_or_default();
+    info!("Querying balance for address: {}", address);
+    let args = serde_wasm_bindgen::to_value(&GetBalanceArgs { address: address.clone() })
+        .map_err(|e| {
+            error!("Failed to serialize GetBalanceArgs: {:?}", e);
+            e
+        })
+        .unwrap_or(JsValue::NULL);
+    let max_attempts = 3;
+    let mut attempt = 1;
+    let mut result = invoke("get_balance", args.clone()).await;
+    while attempt <= max_attempts {
+        match serde_wasm_bindgen::from_value::<String>(result.clone()) {
+            Ok(balance_str) => {
+                debug!("Parsed balance response for {}: {}", address, balance_str);
+                match balance_str.parse::<u64>() {
+                    Ok(balance_value) => {
+                        info!("Balance for address {}: {} VE", address, balance_value);
+                        balance.set(format_balance(balance_value));
+                        is_loading.set(false);
+                        return;
+                    }
+                    Err(e) => {
+                        error!("Failed to parse balance for address {}: {}", address, e);
+                        balance.set(format!("Balance: Error - Failed to parse balance: {}", e));
+                        clear_status_after_delay(balance.clone(), 5000);
+                        is_loading.set(false);
+                        return;
+                    }
+                }
+            }
+            Err(e) => {
+                error!("get_balance attempt {} failed for address {}: {:?}", attempt, address, e);
+                match serde_wasm_bindgen::from_value::<ErrorResponse>(result.clone()) {
+                    Ok(error_response) => {
+                        if error_response.error.contains("Failed to scan for UTXOs") || error_response.error.contains("Failed to connect to node") {
+                            attempt += 1;
+                            if attempt > max_attempts {
+                                error!("get_balance failed after {} attempts for address {}", max_attempts, address);
+                                balance.set(format!("Balance: Error - {}", error_response.error));
+                                clear_status_after_delay(balance.clone(), 5000);
+                                is_loading.set(false);
+                                return;
+                            }
+                            info!("Retrying get_balance (attempt {}/{})", attempt, max_attempts);
+                            wasm_bindgen_futures::JsFuture::from(js_sys::Promise::new(&mut |resolve, _| {
+                                web_sys::window()
+                                    .unwrap()
+                                    .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 1000)
+                                    .unwrap();
+                            }))
+                            .await
+                            .unwrap();
+                            result = invoke("get_balance", args.clone()).await;
+                            continue;
+                        } else {
+                            error!("get_balance failed for address {}: {}", address, error_response.error);
+                            balance.set(format!("Balance: Error - {}", error_response.error));
+                            clear_status_after_delay(balance.clone(), 5000);
+                            is_loading.set(false);
+                            return;
+                        }
+                    }
+                    Err(_) => {
+                        balance.set(format!("Balance: Error - Failed to deserialize balance response: {:?}", e));
+                        clear_status_after_delay(balance.clone(), 5000);
+                        is_loading.set(false);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[function_component(App)]
 pub fn app() -> Html {
     let screen = use_state(|| Screen::Intro);
@@ -106,7 +213,6 @@ pub fn app() -> Html {
     let import_filename_input_ref = use_node_ref();
     let to_address_input_ref = use_node_ref();
     let amount_input_ref = use_node_ref();
-    let selected_address_ref = use_node_ref();
     let selected_wallet_ref = use_node_ref();
     let open_secret_input_ref = use_node_ref();
     let wallet_status = use_state(|| String::new());
@@ -117,32 +223,52 @@ pub fn app() -> Html {
     let is_loading = use_state(|| false);
     let available_wallets = use_state(|| Vec::<WalletFile>::new());
     let node_connected = use_state(|| false);
+    let node_info = use_state(|| NodeInfo { url: String::new() });
     let transactions = use_state(|| Vec::<Transaction>::new());
 
-    // Fetch node connection status
+    // Fetch node connection status and node info
     {
         let node_connected = node_connected.clone();
+        let node_info = node_info.clone();
         let is_loading = is_loading.clone();
         let wallet_status = wallet_status.clone();
         use_effect_with((), move |_| {
             let node_connected = node_connected.clone();
+            let node_info = node_info.clone();
             let is_loading = is_loading.clone();
             let wallet_status = wallet_status.clone();
             spawn_local(async move {
                 is_loading.set(true);
-                let result = invoke("is_node_connected", JsValue::NULL).await;
-                match serde_wasm_bindgen::from_value::<bool>(result) {
+                info!("Checking node connection status");
+                let conn_result = invoke("is_node_connected", JsValue::NULL).await;
+                match serde_wasm_bindgen::from_value::<bool>(conn_result) {
                     Ok(connected) => {
                         node_connected.set(connected);
                         info!("Node connection status: {}", connected);
                         if !connected {
                             wallet_status.set("Warning: Not connected to Vecno node".to_string());
-                            clear_status_after_delay(wallet_status, 5000);
+                            node_info.set(NodeInfo { url: "Not connected".to_string() });
+                            clear_status_after_delay(wallet_status.clone(), 5000);
+                        } else {
+                            let info_result = invoke("get_node_info", JsValue::NULL).await;
+                            match serde_wasm_bindgen::from_value::<NodeInfo>(info_result) {
+                                Ok(info) => {
+                                    node_info.set(info.clone());
+                                    info!("Connected to node: {}", info.url);
+                                }
+                                Err(e) => {
+                                    error!("get_node_info failed: {:?}", e);
+                                    node_info.set(NodeInfo { url: "Unknown node".to_string() });
+                                    wallet_status.set("Error: Failed to fetch node info".to_string());
+                                    clear_status_after_delay(wallet_status.clone(), 5000);
+                                }
+                            }
                         }
                     }
                     Err(e) => {
                         error!("is_node_connected failed: {:?}", e);
                         node_connected.set(false);
+                        node_info.set(NodeInfo { url: "Not connected".to_string() });
                         wallet_status.set("Error: Failed to check node connection".to_string());
                         clear_status_after_delay(wallet_status, 5000);
                     }
@@ -166,6 +292,7 @@ pub fn app() -> Html {
                 let is_loading = is_loading.clone();
                 spawn_local(async move {
                     is_loading.set(true);
+                    info!("Fetching available wallets");
                     let result = invoke("list_wallets", JsValue::NULL).await;
                     match serde_wasm_bindgen::from_value::<Vec<WalletFile>>(result) {
                         Ok(wallets) => {
@@ -187,7 +314,7 @@ pub fn app() -> Html {
         });
     }
 
-    // Check wallet openness before fetching addresses
+    // Check wallet openness and fetch addresses
     {
         let screen = screen.clone();
         let wallet_created = wallet_created.clone();
@@ -196,30 +323,38 @@ pub fn app() -> Html {
         let wallet_status = wallet_status.clone();
         use_effect_with((screen.clone(), wallet_created.clone()), move |(screen, created)| {
             let wallet_status = wallet_status.clone();
-            if **created && matches!(**screen, Screen::Main) && addresses.is_empty() {
-                let addresses = addresses.clone();
-                let is_loading = is_loading.clone();
-                let screen = screen.clone();
-                let wallet_created = wallet_created.clone();
+            let addresses = addresses.clone();
+            let is_loading = is_loading.clone();
+            let screen = screen.clone();
+            let wallet_created = wallet_created.clone();
+            if **created && matches!(*screen, Screen::Main) {
                 spawn_local(async move {
                     is_loading.set(true);
+                    info!("Checking if wallet is open");
                     let is_open_result = invoke("is_wallet_open", JsValue::NULL).await;
                     match serde_wasm_bindgen::from_value::<bool>(is_open_result) {
                         Ok(is_open) if is_open => {
+                            info!("Wallet is open, fetching addresses");
                             let result = invoke("get_address", JsValue::NULL).await;
                             match serde_wasm_bindgen::from_value::<Vec<WalletAddress>>(result) {
                                 Ok(addrs) => {
                                     let addr_count = addrs.len();
+                                    debug!("Setting addresses state: {:?}", addrs);
                                     addresses.set(addrs);
                                     info!("Fetched {} addresses", addr_count);
+                                    if addr_count == 0 {
+                                        wallet_status.set("Warning: No addresses retrieved".to_string());
+                                        clear_status_after_delay(wallet_status.clone(), 5000);
+                                    }
                                 }
                                 Err(e) => {
                                     error!("get_address failed: {:?}", e);
                                     addresses.set(vec![]);
-                                    wallet_status.set("Error: Failed to fetch addresses".to_string());
+                                    wallet_status.set(format!("Error: Failed to fetch addresses: {:?}", e));
                                     clear_status_after_delay(wallet_status, 5000);
                                 }
                             }
+                            is_loading.set(false);
                         }
                         Ok(_) => {
                             error!("Wallet is not open, reverting to Intro screen");
@@ -236,7 +371,27 @@ pub fn app() -> Html {
                             clear_status_after_delay(wallet_status, 5000);
                         }
                     }
-                    is_loading.set(false);
+                });
+            }
+            || {}
+        });
+    }
+
+    // Fetch balance when addresses change
+    {
+        let addresses = addresses.clone();
+        let balance = balance.clone();
+        let is_loading = is_loading.clone();
+        let wallet_status = wallet_status.clone();
+        use_effect_with(addresses.clone(), move |addresses| {
+            let addresses = addresses.clone();
+            let balance = balance.clone();
+            let is_loading = is_loading.clone();
+            let wallet_status = wallet_status.clone();
+            if !addresses.is_empty() {
+                spawn_local(async move {
+                    is_loading.set(true);
+                    fetch_balance(addresses.clone(), balance.clone(), wallet_status.clone(), is_loading.clone()).await;
                 });
             }
             || {}
@@ -256,6 +411,7 @@ pub fn app() -> Html {
                 let is_loading = is_loading.clone();
                 spawn_local(async move {
                     is_loading.set(true);
+                    info!("Fetching recent transactions");
                     let result = invoke("list_transactions", JsValue::NULL).await;
                     match serde_wasm_bindgen::from_value::<Vec<Transaction>>(result) {
                         Ok(txns) => {
@@ -293,8 +449,15 @@ pub fn app() -> Html {
 
     let navigate_to_main = {
         let screen = screen.clone();
+        let addresses = addresses.clone();
+        let balance = balance.clone();
+        let wallet_status = wallet_status.clone();
+        let is_loading = is_loading.clone();
         Callback::from(move |_: MouseEvent| {
             screen.set(Screen::Main);
+            if !(*addresses).is_empty() {
+                spawn_local(fetch_balance(addresses.clone(), balance.clone(), wallet_status.clone(), is_loading.clone()));
+            }
         })
     };
 
@@ -338,39 +501,39 @@ pub fn app() -> Html {
             let is_loading = is_loading.clone();
             spawn_local(async move {
                 is_loading.set(true);
+                info!("Attempting to open wallet: {}", filename);
                 let args = serde_wasm_bindgen::to_value(&CreateWalletArgs {
                     secret,
                     filename,
-                }).expect("Failed to serialize open_wallet args");
+                }).unwrap_or(JsValue::NULL);
                 let result = invoke("open_wallet", args).await;
                 if js_sys::Reflect::get(&result, &JsValue::from_str("error")).is_ok() {
                     let error_msg = js_sys::Reflect::get(&result, &JsValue::from_str("error"))
                         .map(|v| v.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| "Unknown error".to_string());
-                    if error_msg.contains("Wallet file does not exist") {
-                        wallet_status.set("Error: Selected wallet file does not exist".to_string());
-                    } else if error_msg.contains("No private key data found") {
-                        wallet_status.set("Error: Wallet file is corrupted or empty".to_string());
-                    } else {
-                        wallet_status.set(format!("Error: {}", error_msg));
-                    }
+                    wallet_status.set(format!("Error: {}", error_msg));
+                    error!("Failed to open wallet: {}", error_msg);
                     clear_status_after_delay(wallet_status.clone(), 5000);
+                    is_loading.set(false);
                 } else if let Some(msg) = result.as_string() {
                     if msg.contains("Success") {
                         wallet_status.set("Wallet opened successfully!".to_string());
                         wallet_created.set(true);
                         screen.set(Screen::Main);
+                        info!("Wallet opened successfully, navigating to Main screen");
                         clear_status_after_delay(wallet_status.clone(), 3000);
                     } else {
                         wallet_status.set(format!("Error: {}", msg));
+                        error!("Wallet open failed: {}", msg);
                         clear_status_after_delay(wallet_status.clone(), 5000);
+                        is_loading.set(false);
                     }
                 } else {
                     error!("open_wallet failed with unexpected result: {:?}", result);
                     wallet_status.set("Error: Failed to open wallet (check console for details)".to_string());
                     clear_status_after_delay(wallet_status.clone(), 5000);
+                    is_loading.set(false);
                 }
-                is_loading.set(false);
             });
         })
     };
@@ -387,6 +550,7 @@ pub fn app() -> Html {
                     match wasm_bindgen_futures::JsFuture::from(promise).await {
                         Ok(_) => {
                             wallet_status.set("Mnemonic copied to clipboard!".to_string());
+                            info!("Mnemonic copied to clipboard");
                             clear_status_after_delay(wallet_status.clone(), 3000);
                         }
                         Err(e) => {
@@ -396,6 +560,7 @@ pub fn app() -> Html {
                         }
                     }
                 } else {
+                    error!("Clipboard not available");
                     wallet_status.set("Error: Clipboard not available".to_string());
                     clear_status_after_delay(wallet_status.clone(), 5000);
                 }
@@ -446,44 +611,48 @@ pub fn app() -> Html {
             let is_loading = is_loading.clone();
             spawn_local(async move {
                 is_loading.set(true);
-                let args = serde_wasm_bindgen::to_value(&CreateWalletArgs { secret, filename }).expect("Failed to serialize create_wallet args");
+                info!("Creating wallet with filename: {}", filename);
+                let args = serde_wasm_bindgen::to_value(&CreateWalletArgs { secret, filename }).unwrap_or(JsValue::NULL);
                 let result = invoke("create_wallet", args).await;
                 if js_sys::Reflect::get(&result, &JsValue::from_str("error")).is_ok() {
                     let error_msg = js_sys::Reflect::get(&result, &JsValue::from_str("error"))
                         .map(|v| v.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| "Unknown error".to_string());
-                    if error_msg.contains("Invalid path") {
-                        wallet_status.set("Error: Invalid filename or path".to_string());
-                    } else {
-                        wallet_status.set(format!("Error: {}", error_msg));
-                    }
+                    wallet_status.set(format!("Error: {}", error_msg));
+                    error!("Failed to create wallet: {}", error_msg);
                     clear_status_after_delay(wallet_status.clone(), 5000);
+                    is_loading.set(false);
                 } else if let Some(msg) = result.as_string() {
                     if msg.contains("Success") {
                         if let Some(mnemonic) = msg.split("with mnemonic: ").nth(1) {
                             wallet_status.set("Wallet created successfully!".to_string());
                             wallet_created.set(true);
                             screen.set(Screen::MnemonicDisplay(mnemonic.to_string()));
+                            info!("Wallet created successfully, displaying mnemonic");
                             clear_status_after_delay(wallet_status.clone(), 3000);
                         } else {
                             wallet_status.set("Error: Mnemonic not found in response".to_string());
+                            error!("Mnemonic not found in create_wallet response");
                             clear_status_after_delay(wallet_status.clone(), 5000);
+                            is_loading.set(false);
                         }
                     } else {
                         wallet_status.set(format!("Error: {}", msg));
+                        error!("Wallet creation failed: {}", msg);
                         clear_status_after_delay(wallet_status.clone(), 5000);
+                        is_loading.set(false);
                     }
                 } else {
                     error!("create_wallet failed with unexpected result: {:?}", result);
                     wallet_status.set("Error: Failed to create wallet (check console for details)".to_string());
                     clear_status_after_delay(wallet_status.clone(), 5000);
+                    is_loading.set(false);
                 }
-                is_loading.set(false);
             });
         })
     };
 
-    let import_wallet = {
+    let import_wallets = {
         let wallet_status = wallet_status.clone();
         let wallet_created = wallet_created.clone();
         let import_mnemonic_input_ref = import_mnemonic_input_ref.clone();
@@ -542,82 +711,36 @@ pub fn app() -> Html {
             let is_loading = is_loading.clone();
             spawn_local(async move {
                 is_loading.set(true);
-                let args = serde_wasm_bindgen::to_value(&ImportWalletArgs { mnemonic, secret, filename }).expect("Failed to serialize import_wallet args");
-                let result = invoke("import_wallet", args).await;
+                info!("Importing wallet with filename: {}", filename);
+                let args = serde_wasm_bindgen::to_value(&ImportWalletArgs { mnemonic, secret, filename }).unwrap_or(JsValue::NULL);
+                let result = invoke("import_wallets", args).await;
                 if js_sys::Reflect::get(&result, &JsValue::from_str("error")).is_ok() {
                     let error_msg = js_sys::Reflect::get(&result, &JsValue::from_str("error"))
                         .map(|v| v.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| "Unknown error".to_string());
-                    if error_msg.contains("Invalid mnemonic") {
-                        wallet_status.set("Error: Invalid mnemonic phrase".to_string());
-                    } else if error_msg.contains("Invalid path") {
-                        wallet_status.set("Error: Invalid filename or path".to_string());
-                    } else {
-                        wallet_status.set(format!("Error: {}", error_msg));
-                    }
+                    wallet_status.set(format!("Error: {}", error_msg));
+                    error!("Failed to import wallet: {}", error_msg);
                     clear_status_after_delay(wallet_status.clone(), 5000);
+                    is_loading.set(false);
                 } else if let Some(msg) = result.as_string() {
                     if msg.contains("Success") {
                         wallet_status.set("Wallet imported successfully!".to_string());
                         wallet_created.set(true);
                         screen.set(Screen::Main);
+                        info!("Wallet imported successfully, navigating to Main screen");
                         clear_status_after_delay(wallet_status.clone(), 3000);
                     } else {
                         wallet_status.set(format!("Error: {}", msg));
+                        error!("Wallet import failed: {}", msg);
                         clear_status_after_delay(wallet_status.clone(), 5000);
+                        is_loading.set(false);
                     }
                 } else {
-                    error!("import_wallet failed with unexpected result: {:?}", result);
+                    error!("import_wallets failed with unexpected result: {:?}", result);
                     wallet_status.set("Error: Failed to import wallet (check console for details)".to_string());
                     clear_status_after_delay(wallet_status.clone(), 5000);
+                    is_loading.set(false);
                 }
-                is_loading.set(false);
-            });
-        })
-    };
-
-    let get_balance = {
-        let balance = balance.clone();
-        let selected_address_ref = selected_address_ref.clone();
-        let is_loading = is_loading.clone();
-        Callback::from(move |e: MouseEvent| {
-            e.prevent_default();
-            let address = selected_address_ref
-                .cast::<HtmlSelectElement>()
-                .map(|select| select.value())
-                .unwrap_or_default();
-            if address.is_empty() {
-                balance.set("Error: Please select an address".to_string());
-                clear_status_after_delay(balance.clone(), 5000);
-                return;
-            }
-            let balance = balance.clone();
-            let is_loading = is_loading.clone();
-            spawn_local(async move {
-                is_loading.set(true);
-                let args = serde_wasm_bindgen::to_value(&GetBalanceArgs { address }).expect("Failed to serialize get_balance args");
-                let result = invoke("get_balance", args).await;
-                if js_sys::Reflect::get(&result, &JsValue::from_str("error")).is_ok() {
-                    let error_msg = js_sys::Reflect::get(&result, &JsValue::from_str("error"))
-                        .map(|v| v.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| "Unknown error".to_string());
-                    if error_msg.contains("Invalid address") {
-                        balance.set("Error: Invalid address selected".to_string());
-                    } else if error_msg.contains("No balance available") {
-                        balance.set("Error: No balance data available".to_string());
-                    } else {
-                        balance.set(format!("Error: {}", error_msg));
-                    }
-                    clear_status_after_delay(balance.clone(), 5000);
-                } else if let Some(msg) = result.as_string() {
-                    balance.set(format!("Balance: {} VE", msg));
-                    clear_status_after_delay(balance.clone(), 3000);
-                } else {
-                    error!("get_balance failed with unexpected result: {:?}", result);
-                    balance.set("Error: Failed to get balance (check console for details)".to_string());
-                    clear_status_after_delay(balance.clone(), 5000);
-                }
-                is_loading.set(false);
             });
         })
     };
@@ -626,9 +749,12 @@ pub fn app() -> Html {
         let transaction_status = transaction_status.clone();
         let to_address_input_ref = to_address_input_ref.clone();
         let amount_input_ref = amount_input_ref.clone();
-        let selected_address_ref = selected_address_ref.clone();
         let is_loading = is_loading.clone();
         let transactions = transactions.clone();
+        let wallet_created = wallet_created.clone();
+        let addresses = addresses.clone();
+        let balance = balance.clone();
+        let wallet_status = wallet_status.clone();
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
             let to_address = to_address_input_ref
@@ -639,12 +765,8 @@ pub fn app() -> Html {
                 .cast::<HtmlInputElement>()
                 .map(|input| input.value().trim().parse::<u64>().unwrap_or(0))
                 .unwrap_or(0);
-            let from_address = selected_address_ref
-                .cast::<HtmlSelectElement>()
-                .map(|select| select.value())
-                .unwrap_or_default();
-            if to_address.is_empty() || amount == 0 || from_address.is_empty() {
-                transaction_status.set("Error: Recipient address, amount, and sender address are required".to_string());
+            if to_address.is_empty() || amount == 0 {
+                transaction_status.set("Error: Recipient address and amount are required".to_string());
                 clear_status_after_delay(transaction_status.clone(), 5000);
                 return;
             }
@@ -653,33 +775,41 @@ pub fn app() -> Html {
                 clear_status_after_delay(transaction_status.clone(), 5000);
                 return;
             }
+            if !*wallet_created {
+                transaction_status.set("Error: No wallet is open".to_string());
+                clear_status_after_delay(transaction_status.clone(), 5000);
+                return;
+            }
             let transaction_status = transaction_status.clone();
             let is_loading = is_loading.clone();
             let transactions = transactions.clone();
+            let addresses = addresses.clone();
+            let balance = balance.clone();
+            let wallet_status = wallet_status.clone();
             spawn_local(async move {
                 is_loading.set(true);
-                let args = serde_wasm_bindgen::to_value(&SendTransactionArgs { to_address, amount }).expect("Failed to serialize send_transaction args");
+                info!("Sending transaction to {} with amount {} VE", to_address, amount);
+                let args = serde_wasm_bindgen::to_value(&SendTransactionArgs { to_address, amount }).unwrap_or(JsValue::NULL);
                 let result = invoke("send_transaction", args).await;
                 if js_sys::Reflect::get(&result, &JsValue::from_str("error")).is_ok() {
                     let error_msg = js_sys::Reflect::get(&result, &JsValue::from_str("error"))
                         .map(|v| v.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| "Unknown error".to_string());
-                    if error_msg.contains("Insufficient") {
-                        transaction_status.set("Error: Insufficient balance".to_string());
-                    } else if error_msg.contains("Address parsing failed") {
-                        transaction_status.set("Error: Invalid recipient address".to_string());
-                    } else {
-                        transaction_status.set(format!("Error: {}", error_msg));
-                    }
+                    transaction_status.set(format!("Error: {}", error_msg));
+                    error!("Failed to send transaction: {}", error_msg);
                     clear_status_after_delay(transaction_status.clone(), 5000);
                 } else if let Some(msg) = result.as_string() {
                     transaction_status.set(format!("Success: {}", msg));
+                    info!("Transaction sent successfully: {}", msg);
                     clear_status_after_delay(transaction_status.clone(), 3000);
-                    // Refresh transactions after successful send
                     let tx_result = invoke("list_transactions", JsValue::NULL).await;
                     match serde_wasm_bindgen::from_value::<Vec<Transaction>>(tx_result) {
                         Ok(txns) => {
                             transactions.set(txns);
+                            info!("Refreshed transactions after send");
+                            if !(*addresses).is_empty() {
+                                fetch_balance(addresses.clone(), balance.clone(), wallet_status.clone(), is_loading.clone()).await;
+                            }
                         }
                         Err(e) => {
                             error!("list_transactions failed after send: {:?}", e);
@@ -702,6 +832,7 @@ pub fn app() -> Html {
             <div class="node-status node-status-fixed">
                 <div class={classes!("node-indicator", if *node_connected { "connected" } else { "disconnected" })}></div>
                 <span class="node-status-text">{ if *node_connected { "Connected" } else { "Disconnected" } }</span>
+                <span class="node-tooltip">{ &node_info.url }</span>
             </div>
             { match &*screen {
                 Screen::Intro => html! {
@@ -759,7 +890,7 @@ pub fn app() -> Html {
                         <div class="row">
                             <img src="public/vecno.png" class="logo vecno" alt="Vecno logo"/>
                         </div>
-                        <form class="row" onsubmit={import_wallet}>
+                        <form class="row" onsubmit={import_wallets}>
                             <input id="import-filename-input" ref={import_filename_input_ref} placeholder="Wallet filename (e.g., mywallet)" class="input" />
                             <input id="import-mnemonic-input" ref={import_mnemonic_input_ref} placeholder="Enter 24-word mnemonic" class="input" />
                             <input id="import-secret-input" ref={import_secret_input_ref} type="password" placeholder="Enter new password (min 8 characters)" class="input" />
@@ -826,19 +957,13 @@ pub fn app() -> Html {
                                 }
                             }}
                         </div>
-                        <div class="row">
-                            <select ref={selected_address_ref.clone()} disabled={*is_loading || !*wallet_created || addresses.is_empty()} class="input">
-                                <option value="" selected=true disabled=true>{"Select address for balance"}</option>
-                                { for (*addresses).iter().flat_map(|addr| vec![
-                                    html! { <option value={addr.receive_address.clone()}>{ format!("{} (Receive)", addr.account_name) }</option> },
-                                    html! { <option value={addr.change_address.clone()}>{ format!("{} (Change)", addr.account_name) }</option> },
-                                ]) }
-                            </select>
-                            <button onclick={get_balance} disabled={*is_loading || !*wallet_created || addresses.is_empty()} class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}>
-                                {"Get Balance"}
-                            </button>
-                        </div>
-                        <p class="status">{ &*balance }</p>
+                        <p class="status">
+                            { if *is_loading && (*balance).is_empty() {
+                                "Fetching balance..."
+                            } else {
+                                &*balance
+                            }}
+                        </p>
                     </main>
                 },
                 Screen::Transactions => html! {
@@ -850,16 +975,9 @@ pub fn app() -> Html {
                         <p>{"Send transactions and view recent transaction history."}</p><br />
                         <button onclick={navigate_to_main} class="btn btn-secondary">{"Back to Wallet"}</button>
                         <form class="row" onsubmit={send_transaction}>
-                            <select ref={selected_address_ref.clone()} disabled={*is_loading || !*wallet_created || addresses.is_empty()} class="input">
-                                <option value="" selected=true disabled=true>{"Select sender address"}</option>
-                                { for (*addresses).iter().flat_map(|addr| vec![
-                                    html! { <option value={addr.receive_address.clone()}>{ format!("{} (Receive)", addr.account_name) }</option> },
-                                    html! { <option value={addr.change_address.clone()}>{ format!("{} (Change)", addr.account_name) }</option> },
-                                ]) }
-                            </select>
-                            <input id="to-address-input" ref={to_address_input_ref} placeholder="Recipient address (e.g., vecno:...)" disabled={*is_loading || !*wallet_created || addresses.is_empty()} class="input" />
-                            <input id="amount-input" ref={amount_input_ref} type="number" placeholder="Amount (VE)" min="1" disabled={*is_loading || !*wallet_created || addresses.is_empty()} class="input" />
-                            <button type="submit" disabled={*is_loading || !*wallet_created || addresses.is_empty()} class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}>
+                            <input id="to-address-input" ref={to_address_input_ref} placeholder="Recipient address (e.g., vecno:...)" disabled={*is_loading || !*wallet_created} class="input" />
+                            <input id="amount-input" ref={amount_input_ref} type="number" placeholder="Amount (VE)" min="1" disabled={*is_loading || !*wallet_created} class="input" />
+                            <button type="submit" disabled={*is_loading || !*wallet_created} class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}>
                                 {"Send Transaction"}
                             </button>
                         </form>
@@ -895,38 +1013,41 @@ pub fn app() -> Html {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    // Initialize logging
+    wasm_logger::init(wasm_logger::Config::new(log::Level::Debug));
     wasm_bindgen_futures::spawn_local(async {
-        // Prevent refresh via Ctrl+R, Cmd+R, or F5
         let window = web_sys::window().expect("window not available");
         let document = window.document().expect("document not available");
-        
+
         let closure = Closure::wrap(Box::new(move |event: web_sys::KeyboardEvent| {
-            if event.key() == "F5" || 
-               (event.ctrl_key() && event.key() == "r") || 
-               (event.meta_key() && event.key() == "r") {
+            let key = event.key();
+            if key.is_empty() || key == "undefined" {
+                error!("Keydown event has invalid or undefined key: {:?}", key);
+                return;
+            }
+
+            if key == "F5" || 
+               (event.ctrl_key() && key == "r") || 
+               (event.meta_key() && key == "r") {
                 event.prevent_default();
+                info!("Prevented refresh action for key: {}", key);
             }
         }) as Box<dyn FnMut(_)>);
-        
+
         document
             .add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
             .expect("failed to add keydown listener");
-        closure.forget(); // Prevent closure from being dropped
+        closure.forget();
 
-        // Prevent refresh via beforeunload
         let beforeunload_closure = Closure::wrap(Box::new(move |event: BeforeUnloadEvent| {
             event.prevent_default();
-            // Set return_value to block refresh (empty string for no prompt in Tauri WebView)
             event.set_return_value("");
         }) as Box<dyn FnMut(_)>);
-        
+
         window
             .add_event_listener_with_callback("beforeunload", beforeunload_closure.as_ref().unchecked_ref())
             .expect("failed to add beforeunload listener");
-        beforeunload_closure.forget(); // Prevent closure from being dropped
+        beforeunload_closure.forget();
     });
 
-    // Render the Yew app
     yew::Renderer::<App>::new().render();
 }

@@ -50,6 +50,8 @@ body.dark {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  position: relative; /* Required for tooltip positioning */
+  cursor: pointer; /* Indicate hoverability */
 }
 
 .node-status-fixed {
@@ -68,16 +70,15 @@ body.dark {
 }
 
 .node-indicator.connected {
-  background-color: #4caf50; /* Green for connected */
+  background-color: #4caf50;
   box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
 }
 
 .node-indicator.disconnected {
-  background-color: #ff5252; /* Red for disconnected */
+  background-color: #ff5252;
   box-shadow: 0 0 8px rgba(255, 82, 82, 0.5);
 }
 
-/* Pulsing animation for indicator */
 .node-indicator.connected::after {
   content: '';
   position: absolute;
@@ -125,6 +126,44 @@ body.dark {
 
 body.dark .node-status-text {
   color: #e6f0ff;
+}
+
+/* Tooltip styles */
+.node-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: #1c2526;
+  color: #f0f4f8;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+}
+
+body.dark .node-tooltip {
+  background-color: #2a2f4e;
+  color: #e6f0ff;
+}
+
+.node-status:hover .node-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Ensure tooltip stays within viewport on smaller screens */
+@media (max-width: 480px) {
+  .node-tooltip {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 90vw;
+  }
 }
 
 h1 {
@@ -196,46 +235,41 @@ body.dark .input {
   box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.2);
 }
 
-/* Dropdown menu (select element) */
 select {
   flex: 1;
-  padding: 0.6rem 2.5rem 0.6rem 0.75rem; /* Extra padding-right for custom arrow */
+  padding: 0.6rem 2.5rem 0.6rem 0.75rem;
   font-size: 0.9rem;
   font-weight: 500;
   border: 1px solid #4a5e87;
   border-radius: 8px;
   background-color: #1c2526;
   color: #f0f4f8;
-  appearance: none; /* Remove default browser arrow */
+  appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23f0f4f8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 12px;
   transition: border-color 0.3s, box-shadow 0.3s, background-color 0.3s;
   cursor: pointer;
-  width: 220px; /* Slightly wider for better readability */
+  width: 220px;
   max-width: 100%;
 }
 
-/* Placeholder style for "Select a wallet" */
 select option[disabled][selected] {
-  color: #9e9e9e; /* Greyed-out placeholder */
+  color: #9e9e9e;
 }
 
-/* Hover state */
 select:hover:not(:disabled) {
   border-color: #42a5f5;
   box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.1);
 }
 
-/* Focus state */
 select:focus {
   outline: none;
   border-color: #42a5f5;
   box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.2);
 }
 
-/* Disabled state */
 select:disabled {
   background-color: #3a3f5a;
   color: #9e9e9e;
@@ -243,7 +277,6 @@ select:disabled {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-/* Dark mode */
 body.dark select {
   background-color: #2a2f4e;
   border-color: #5a6b9e;
@@ -257,7 +290,6 @@ body.dark select:disabled {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-/* Smaller select for specific cases */
 .select-sm {
   width: 160px;
   padding: 0.4rem 2rem 0.4rem 0.6rem;
@@ -521,12 +553,13 @@ body.dark a {
 }
 
 .transaction-list {
-    list-style: none;
-    padding: 0;
+  list-style: none;
+  padding: 0;
 }
+
 .transaction-list li {
-    margin-bottom: 1em;
-    padding: 1em;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+  margin-bottom: 1em;
+  padding: 1em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
