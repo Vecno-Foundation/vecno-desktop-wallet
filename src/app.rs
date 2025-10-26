@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
-use web_sys::{HtmlInputElement, HtmlSelectElement};
+use web_sys::{HtmlInputElement, HtmlSelectElement, BeforeUnloadEvent};
 use log::{error, info};
 
 #[wasm_bindgen]
@@ -343,12 +343,11 @@ pub fn app() -> Html {
                     filename,
                 }).expect("Failed to serialize open_wallet args");
                 let result = invoke("open_wallet", args).await;
-                // Check if the result is an error object
                 if js_sys::Reflect::get(&result, &JsValue::from_str("error")).is_ok() {
                     let error_msg = js_sys::Reflect::get(&result, &JsValue::from_str("error"))
                         .map(|v| v.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| "Unknown error".to_string());
-                      if error_msg.contains("Wallet file does not exist") {
+                    if error_msg.contains("Wallet file does not exist") {
                         wallet_status.set("Error: Selected wallet file does not exist".to_string());
                     } else if error_msg.contains("No private key data found") {
                         wallet_status.set("Error: Wallet file is corrupted or empty".to_string());
@@ -896,5 +895,38 @@ pub fn app() -> Html {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
+    // Initialize logging
+    wasm_bindgen_futures::spawn_local(async {
+        // Prevent refresh via Ctrl+R, Cmd+R, or F5
+        let window = web_sys::window().expect("window not available");
+        let document = window.document().expect("document not available");
+        
+        let closure = Closure::wrap(Box::new(move |event: web_sys::KeyboardEvent| {
+            if event.key() == "F5" || 
+               (event.ctrl_key() && event.key() == "r") || 
+               (event.meta_key() && event.key() == "r") {
+                event.prevent_default();
+            }
+        }) as Box<dyn FnMut(_)>);
+        
+        document
+            .add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
+            .expect("failed to add keydown listener");
+        closure.forget(); // Prevent closure from being dropped
+
+        // Prevent refresh via beforeunload
+        let beforeunload_closure = Closure::wrap(Box::new(move |event: BeforeUnloadEvent| {
+            event.prevent_default();
+            // Set return_value to block refresh (empty string for no prompt in Tauri WebView)
+            event.set_return_value("");
+        }) as Box<dyn FnMut(_)>);
+        
+        window
+            .add_event_listener_with_callback("beforeunload", beforeunload_closure.as_ref().unchecked_ref())
+            .expect("failed to add beforeunload listener");
+        beforeunload_closure.forget(); // Prevent closure from being dropped
+    });
+
+    // Render the Yew app
     yew::Renderer::<App>::new().render();
 }

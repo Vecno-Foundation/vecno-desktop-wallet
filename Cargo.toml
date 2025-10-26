@@ -11,7 +11,7 @@ members = ["src-tauri"]
 yew = { version = "0.21", features = ["csr"] }
 wasm-bindgen = { version = "0.2.100", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.43"
-web-sys = { version = "0.3.70", features = ["HtmlSelectElement", "HtmlInputElement", "HtmlElement", "Window", "Navigator", "Clipboard", "ClipboardEvent"] }
+web-sys = { version = "0.3.70", features = ["BeforeUnloadEvent", "HtmlSelectElement", "HtmlInputElement", "HtmlElement", "Window", "Navigator", "Clipboard", "ClipboardEvent"] }
 js-sys = "0.3.70"
 
 # Serialization
