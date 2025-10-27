@@ -226,6 +226,9 @@ pub fn app() -> Html {
     let node_info = use_state(|| NodeInfo { url: String::new() });
     let transactions = use_state(|| Vec::<Transaction>::new());
 
+    // Derive version from Cargo.toml
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+
     // Fetch node connection status and node info
     {
         let node_connected = node_connected.clone();
@@ -465,6 +468,15 @@ pub fn app() -> Html {
         let screen = screen.clone();
         Callback::from(move |_: MouseEvent| {
             screen.set(Screen::Transactions);
+        })
+    };
+
+    let navigate_to_intro = {
+        let screen = screen.clone();
+        let wallet_created = wallet_created.clone();
+        Callback::from(move |_: MouseEvent| {
+            screen.set(Screen::Intro);
+            wallet_created.set(false);
         })
     };
 
@@ -829,77 +841,136 @@ pub fn app() -> Html {
 
     html! {
         <div class="app-container">
-            <div class="node-status node-status-fixed">
+            <div class="node-status node-status-fixed" aria-live="polite">
                 <div class={classes!("node-indicator", if *node_connected { "connected" } else { "disconnected" })}></div>
                 <span class="node-status-text">{ if *node_connected { "Connected" } else { "Disconnected" } }</span>
                 <span class="node-tooltip">{ &node_info.url }</span>
             </div>
+            <div class="app-title">{ format!("Vecno Wallet v{}", VERSION) }</div>
             { match &*screen {
                 Screen::Intro => html! {
-                    <main class="container">
-                        <h1>{"Welcome to Vecno Wallet v0.0.1"}</h1>
-                        <div class="row">
-                            <img src="public/vecno.png" class="logo vecno" alt="Vecno logo"/>
-                        </div>
-                        <p>{"Your gateway to secure and decentralized wallet management."}</p>
-                        { if available_wallets.is_empty() && *is_loading {
-                            html! { <p>{"Scanning for wallets..."}</p> }
-                        } else if available_wallets.is_empty() {
-                            html! { <p>{""}</p> }
-                        } else {
-                            html! {
-                                <form class="row" onsubmit={open_wallet}>
-                                    <select ref={selected_wallet_ref} class="input">
-                                        <option value="" selected=true disabled=true>{"Select a wallet"}</option>
-                                        { for (*available_wallets).iter().map(|wallet| html! {
-                                            <option value={wallet.path.clone()}>{ &wallet.name }</option>
-                                        }) }
-                                    </select>
-                                    <input id="open-secret-input" ref={open_secret_input_ref} type="password" placeholder="Enter wallet password" class="input" />
-                                    <button type="submit" disabled={*is_loading} class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}>
-                                        {"Open Wallet"}
-                                    </button>
-                                </form>
-                            }
-                        }}
-                        <p class="status">{ &*wallet_status }</p>
-                        <button onclick={proceed_to_create} class="btn btn-primary">{"Create New Wallet"}</button><br />
-                        <p>{"Have a mnemonic? "}<a href="#" onclick={proceed_to_import}>{"Import Wallet"}</a></p>
-                    </main>
+                    <>
+                        <main class="container" role="main" aria-label="Welcome to Vecno Wallet">
+                            <div class="row">
+                                <img src="public/vecnotest.png" class="logo vecno" alt="Vecno logo"/>
+                            </div>
+                            <p>{"Your gateway to secure and decentralized wallet management."}</p>
+                            { if available_wallets.is_empty() && *is_loading {
+                                html! { <p aria-live="polite">{"Scanning for wallets..."}</p> }
+                            } else if available_wallets.is_empty() {
+                                html! { <p aria-live="polite">{""}</p> }
+                            } else {
+                                html! {
+                                    <form class="row" onsubmit={open_wallet} aria-label="Open existing wallet">
+                                        <label for="wallet-select" class="sr-only">{"Select a wallet"}</label>
+                                        <select id="wallet-select" ref={selected_wallet_ref} class="input" aria-required="true">
+                                            <option value="" selected=true disabled=true>{"Select a wallet"}</option>
+                                            { for (*available_wallets).iter().map(|wallet| html! {
+                                                <option value={wallet.path.clone()}>{ &wallet.name }</option>
+                                            }) }
+                                        </select>
+                                        <label for="open-secret-input" class="sr-only">{"Wallet password"}</label>
+                                        <input
+                                            id="open-secret-input"
+                                            ref={open_secret_input_ref}
+                                            type="password"
+                                            placeholder="Enter wallet password"
+                                            class="input"
+                                            aria-required="true"
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={*is_loading}
+                                            class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}
+                                            aria-busy={is_loading.to_string()}
+                                        >
+                                            {"Open Wallet"}
+                                        </button>
+                                    </form>
+                                }
+                            }}
+                            <p class="status" aria-live="assertive">{ &*wallet_status }</p>
+                            <button onclick={proceed_to_create} class="btn btn-primary" aria-label="Create a new wallet">{"Create New Wallet"}</button><br /><br />
+                            <p>{"Have a mnemonic? "}<a href="#" onclick={proceed_to_import} aria-label="Import a wallet using mnemonic">{"Import Wallet"}</a></p>
+                        </main>
+                    </>
                 },
                 Screen::CreateWallet => html! {
-                    <main class="container">
-                        <h1>{"Create New Wallet"}</h1>
-                        <div class="row">
-                            <img src="public/vecno.png" class="logo vecno" alt="Vecno logo"/>
-                        </div>
-                        <form class="row" onsubmit={create_wallet}>
-                            <input id="filename-input" ref={filename_input_ref} placeholder="Wallet filename (e.g., mywallet)" class="input" />
-                            <input id="secret-input" ref={secret_input_ref} type="password" placeholder="Enter wallet password (min 8 characters)" class="input" />
-                            <button type="submit" disabled={*is_loading} class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}>
+                    <main class="container" role="main" aria-label="Create New Wallet">
+                        <p>{"Create a new wallet to start managing your Vecno assets."}</p>
+                        <form class="row" onsubmit={create_wallet} aria-label="Create new wallet form">
+                            <label for="filename-input" class="sr-only">{"Wallet filename"}</label>
+                            <input
+                                id="filename-input"
+                                ref={filename_input_ref}
+                                placeholder="Wallet filename (e.g., mywallet)"
+                                class="input"
+                                aria-required="true"
+                            />
+                            <label for="secret-input" class="sr-only">{"Wallet password"}</label>
+                            <input
+                                id="secret-input"
+                                ref={secret_input_ref}
+                                type="password"
+                                placeholder="Enter wallet password"
+                                class="input"
+                                aria-required="true"
+                            />
+                            <button
+                                type="submit"
+                                disabled={*is_loading}
+                                class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}
+                                aria-busy={is_loading.to_string()}
+                            >
                                 {"Create Wallet"}
                             </button>
                         </form>
-                        <p class="status">{ &*wallet_status }</p>
-                        <p>{"Have a mnemonic? "}<a href="#" onclick={proceed_to_import}>{"Import Wallet"}</a></p>
+                        <p class="status" aria-live="assertive">{ &*wallet_status }</p>
+                        <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Go back to main menu">{"Go Back to Menu"}</button><br /><br />
+                        <p>{"Have a mnemonic? "}<a href="#" onclick={proceed_to_import} aria-label="Import a wallet using mnemonic">{"Import Wallet"}</a></p>
                     </main>
                 },
                 Screen::ImportWallet => html! {
-                    <main class="container">
-                        <h1>{"Import Wallet"}</h1>
-                        <div class="row">
-                            <img src="public/vecno.png" class="logo vecno" alt="Vecno logo"/>
-                        </div>
-                        <form class="row" onsubmit={import_wallets}>
-                            <input id="import-filename-input" ref={import_filename_input_ref} placeholder="Wallet filename (e.g., mywallet)" class="input" />
-                            <input id="import-mnemonic-input" ref={import_mnemonic_input_ref} placeholder="Enter 24-word mnemonic" class="input" />
-                            <input id="import-secret-input" ref={import_secret_input_ref} type="password" placeholder="Enter new password (min 8 characters)" class="input" />
-                            <button type="submit" disabled={*is_loading} class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}>
+                    <main class="container" role="main" aria-label="Import Wallet">
+                        <p>{"Import an existing wallet using your 24-word mnemonic phrase."}</p>
+                        <form class="row" onsubmit={import_wallets} aria-label="Import wallet form">
+                            <label for="import-filename-input" class="sr-only">{"Wallet filename"}</label>
+                            <input
+                                id="import-filename-input"
+                                ref={import_filename_input_ref}
+                                placeholder="Wallet filename (e.g., mywallet)"
+                                class="input"
+                                aria-required="true"
+                            />
+                            <label for="import-mnemonic-input" class="sr-only">{"Mnemonic phrase"}</label>
+                            <input
+                                id="import-mnemonic-input"
+                                ref={import_mnemonic_input_ref}
+                                placeholder="Enter 24-word mnemonic"
+                                class="input"
+                                aria-required="true"
+                            />
+                            <label for="import-secret-input" class="sr-only">{"New wallet password"}</label>
+                            <input
+                                id="import-secret-input"
+                                ref={import_secret_input_ref}
+                                type="password"
+                                placeholder="Enter new password"
+                                class="input"
+                                aria-required="true"
+                            />
+                            <button
+                                type="submit"
+                                disabled={*is_loading}
+                                class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}
+                                aria-busy={is_loading.to_string()}
+                            >
                                 {"Import Wallet"}
                             </button>
                         </form>
-                        <p class="status">{ &*wallet_status }</p>
-                        <p>{"Want to create a new wallet? "}<a href="#" onclick={proceed_to_create}>{"Create New Wallet"}</a></p>
+                        <p class="status" aria-live="assertive">{ &*wallet_status }</p>
+                        <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Go back to main menu">{"Go Back to Menu"}</button><br /><br />
+                        <p>{"Want to create a new wallet? "}<a href="#" onclick={proceed_to_create} aria-label="Create a new wallet">{"Create New Wallet"}</a></p>
                     </main>
                 },
                 Screen::MnemonicDisplay(mnemonic) => {
@@ -912,40 +983,63 @@ pub fn app() -> Html {
                         })
                     };
                     html! {
-                        <main class="container">
-                            <h1>{"Wallet Created"}</h1>
-                            <div class="row">
-                                <img src="public/vecno.png" class="logo vecno" alt="Vecno logo"/>
-                            </div>
-                            <p>{"Your wallet has been created successfully. Please save your 24-word mnemonic phrase securely."}</p>
-                            <div class="mnemonic-box">
+                        <main class="container" role="main" aria-label="Wallet Created">
+                            <h2>{"Wallet Created Successfully"}</h2>
+                            <p class="instruction-text">
+                                {"Please save your 24-word mnemonic phrase securely. This is critical for recovering your wallet."}
+                            </p>
+                            <div class="mnemonic-box" aria-label="Mnemonic phrase">
                                 <p>{ &mnemonic_clone }</p>
                             </div>
-                            <button onclick={move |_| copy.emit(mnemonic_clone.clone())} class="btn btn-secondary">{"Copy Mnemonic"}</button><br />
-                            <button onclick={proceed} class="btn btn-primary">{"Proceed to Wallet"}</button>
-                            <p class="status">{ &*wallet_status }</p>
+                            <div class="row button-group">
+                                <button
+                                    onclick={move |_| copy.emit(mnemonic_clone.clone())}
+                                    class="btn btn-secondary"
+                                    aria-label="Copy mnemonic to clipboard"
+                                >
+                                    {"Copy Mnemonic"}
+                                </button>
+                                <button
+                                    onclick={proceed}
+                                    class="btn btn-primary btn-prominent"
+                                    aria-label="Proceed to wallet"
+                                >
+                                    {"Proceed to Wallet"}
+                                </button>
+                                <button
+                                    onclick={navigate_to_intro.clone()}
+                                    class="btn btn-secondary"
+                                    aria-label="Go back to main menu"
+                                >
+                                    {"Go Back to Menu"}
+                                </button>
+                            </div>
+                            <p class="status" aria-live="assertive">{ &*wallet_status }</p>
                         </main>
                     }
                 },
                 Screen::Main => html! {
-                    <main class="container">
-                        <h1>{"Vecno Wallet"}</h1>
-                        <div class="row">
-                            <img src="public/vecno.png" class="logo vecno" alt="Vecno logo"/>
+                    <main class="container" role="main" aria-label="Vecno Wallet Dashboard">
+                        <div class="balance-container" aria-live="assertive">
+                            <h2>{"Wallet Balance"}</h2>
+                            <p class={classes!("balance", if *is_loading && (*balance).is_empty() { "loading" } else { "" })}>
+                                { if *is_loading && (*balance).is_empty() {
+                                    "Fetching balance..."
+                                } else {
+                                    &*balance
+                                }}
+                            </p>
                         </div>
                         <p>{"Manage your Vecno wallet: check balance and view transactions."}</p>
-                        <div class="row">
-                            <button onclick={navigate_to_transactions} class="btn btn-primary">{"View Transactions"}</button>
-                        </div>
                         <div>
                             <h3>{"Addresses"}</h3>
                             { if addresses.is_empty() && *is_loading {
-                                html! { <p>{"Loading addresses..."}</p> }
+                                html! { <p aria-live="polite">{"Loading addresses..."}</p> }
                             } else if addresses.is_empty() {
-                                html! { <p class="status">{"No addresses found. Try refreshing or check wallet setup."}</p> }
+                                html! { <p class="status" aria-live="assertive">{"No addresses found. Try refreshing or check wallet setup."}</p> }
                             } else {
                                 html! {
-                                    <ul class="address-list">
+                                    <ul class="address-list" aria-label="Wallet addresses">
                                         { for (*addresses).iter().map(|addr| html! {
                                             <li>
                                                 <strong>{ format!("Account: {} (Index: {})", addr.account_name, addr.account_index) }</strong><br />
@@ -957,39 +1051,68 @@ pub fn app() -> Html {
                                 }
                             }}
                         </div>
-                        <p class="status">
-                            { if *is_loading && (*balance).is_empty() {
-                                "Fetching balance..."
-                            } else {
-                                &*balance
-                            }}
-                        </p>
+                        <div class="row">
+                            <button onclick={navigate_to_transactions} class="btn btn-primary" aria-label="View transaction history">{"View Transactions"}</button>
+                            <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Go back to main menu">{"Go Back to Menu"}</button>
+                        </div>
                     </main>
                 },
                 Screen::Transactions => html! {
-                    <main class="container">
-                        <h1>{"Transactions"}</h1>
-                        <div class="row">
-                            <img src="public/vecno.png" class="logo vecno" alt="Vecno logo"/>
+                    <main class="container" role="main" aria-label="Transactions">
+                        <div class="balance-container" aria-live="assertive">
+                            <h2>{"Wallet Balance"}</h2>
+                            <p class={classes!("balance", if *is_loading && (*balance).is_empty() { "loading" } else { "" })}>
+                                { if *is_loading && (*balance).is_empty() {
+                                    "Fetching balance..."
+                                } else {
+                                    &*balance
+                                }}
+                            </p>
                         </div>
-                        <p>{"Send transactions and view recent transaction history."}</p><br />
-                        <button onclick={navigate_to_main} class="btn btn-secondary">{"Back to Wallet"}</button>
-                        <form class="row" onsubmit={send_transaction}>
-                            <input id="to-address-input" ref={to_address_input_ref} placeholder="Recipient address (e.g., vecno:...)" disabled={*is_loading || !*wallet_created} class="input" />
-                            <input id="amount-input" ref={amount_input_ref} type="number" placeholder="Amount (VE)" min="1" disabled={*is_loading || !*wallet_created} class="input" />
-                            <button type="submit" disabled={*is_loading || !*wallet_created} class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}>
+                        <p>{"Send transactions and view recent transaction history."}</p>
+                        <form class="row" onsubmit={send_transaction} aria-label="Send transaction form">
+                            <label for="to-address-input" class="sr-only">{"Recipient address"}</label>
+                            <input
+                                id="to-address-input"
+                                ref={to_address_input_ref}
+                                placeholder="Recipient address (e.g., vecno:...)"
+                                disabled={*is_loading || !*wallet_created}
+                                class="input"
+                                aria-required="true"
+                            />
+                            <label for="amount-input" class="sr-only">{"Amount in VE"}</label>
+                            <input
+                                id="amount-input"
+                                ref={amount_input_ref}
+                                type="number"
+                                placeholder="Amount (VE)"
+                                min="1"
+                                disabled={*is_loading || !*wallet_created}
+                                class="input"
+                                aria-required="true"
+                            />
+                            <button
+                                type="submit"
+                                disabled={*is_loading || !*wallet_created}
+                                class={classes!("btn", "btn-primary", if *is_loading { "loading" } else { "" })}
+                                aria-busy={is_loading.to_string()}
+                            >
                                 {"Send Transaction"}
                             </button>
                         </form>
-                        <p class="status">{ &*transaction_status }</p>
+                        <p class="status" aria-live="assertive">{ &*transaction_status }</p>
+                        <div class="row">
+                            <button onclick={navigate_to_main} class="btn btn-secondary" aria-label="Back to wallet dashboard">{"Back to Wallet"}</button>
+                            <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Go back to main menu">{"Go Back to Menu"}</button>
+                        </div>
                         <h3>{"Recent Transactions"}</h3>
                         { if transactions.is_empty() && *is_loading {
-                            html! { <p>{"Loading transactions..."}</p> }
+                            html! { <p aria-live="polite">{"Loading transactions..."}</p> }
                         } else if transactions.is_empty() {
-                            html! { <p>{"No recent transactions found."}</p> }
+                            html! { <p aria-live="polite">{"No recent transactions found."}</p> }
                         } else {
                             html! {
-                                <ul class="transaction-list">
+                                <ul class="transaction-list" aria-label="Recent transactions">
                                     { for (*transactions).iter().map(|tx| {
                                         html! {
                                             <li>

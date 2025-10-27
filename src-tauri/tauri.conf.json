@@ -13,14 +13,16 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "vecno-wallet",
+        "title": "Vecno Wallet",
         "width": 1200,
-        "height": 600,
-        "resizable": false
+        "height": 800,
+        "resizable": false,
+        "minWidth": 800,
+        "minHeight": 600
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws://localhost:8110 wss://wallet.vecnoscan.org wss://wallet2.vecnoscan.org"
     }
   },
   "bundle": {
