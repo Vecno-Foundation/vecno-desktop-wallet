@@ -27,6 +27,7 @@ vecno-wallet-core = { git = "https://github.com/Yooshikii/testnet1.git", branch 
 vecno-wrpc-client = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-rpc-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-consensus-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
+vecno-addresses = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 
 # Asynchronous runtime
 tokio = { version = "1", features = ["full"] }

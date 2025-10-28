@@ -262,7 +262,7 @@ pub fn app() -> Html {
                                 Err(e) => {
                                     error!("get_node_info failed: {:?}", e);
                                     node_info.set(NodeInfo { url: "Unknown node".to_string() });
-                                    wallet_status.set("Error: Failed to fetch node info".to_string());
+                                    wallet_status.set("Failed to fetch node info".to_string());
                                     clear_status_after_delay(wallet_status.clone(), 5000);
                                 }
                             }
@@ -272,7 +272,7 @@ pub fn app() -> Html {
                         error!("is_node_connected failed: {:?}", e);
                         node_connected.set(false);
                         node_info.set(NodeInfo { url: "Not connected".to_string() });
-                        wallet_status.set("Error: Failed to check node connection".to_string());
+                        wallet_status.set("Failed to check node connection".to_string());
                         clear_status_after_delay(wallet_status, 5000);
                     }
                 }
@@ -306,7 +306,7 @@ pub fn app() -> Html {
                         Err(e) => {
                             error!("list_wallets failed: {:?}", e);
                             available_wallets.set(vec![]);
-                            wallet_status.set("Error: Failed to list wallets".to_string());
+                            wallet_status.set("Failed to list wallets".to_string());
                             clear_status_after_delay(wallet_status, 5000);
                         }
                     }
@@ -353,7 +353,7 @@ pub fn app() -> Html {
                                 Err(e) => {
                                     error!("get_address failed: {:?}", e);
                                     addresses.set(vec![]);
-                                    wallet_status.set(format!("Error: Failed to fetch addresses: {:?}", e));
+                                    wallet_status.set(format!("Failed to fetch addresses: {:?}", e));
                                     clear_status_after_delay(wallet_status, 5000);
                                 }
                             }
@@ -361,14 +361,14 @@ pub fn app() -> Html {
                         }
                         Ok(_) => {
                             error!("Wallet is not open, reverting to Intro screen");
-                            wallet_status.set("Error: Wallet is not open, please open or create a wallet".to_string());
+                            wallet_status.set("Wallet is not open, please open or create a wallet".to_string());
                             screen.set(Screen::Intro);
                             wallet_created.set(false);
                             clear_status_after_delay(wallet_status, 5000);
                         }
                         Err(e) => {
                             error!("is_wallet_open failed: {:?}", e);
-                            wallet_status.set("Error: Failed to check wallet status".to_string());
+                            wallet_status.set("Failed to check wallet status".to_string());
                             screen.set(Screen::Intro);
                             wallet_created.set(false);
                             clear_status_after_delay(wallet_status, 5000);
@@ -425,7 +425,7 @@ pub fn app() -> Html {
                         Err(e) => {
                             error!("list_transactions failed: {:?}", e);
                             transactions.set(vec![]);
-                            wallet_status.set("Error: Failed to list transactions".to_string());
+                            wallet_status.set("Failed to list transactions".to_string());
                             clear_status_after_delay(wallet_status, 5000);
                         }
                     }
@@ -498,12 +498,17 @@ pub fn app() -> Html {
                 .map(|input| input.value().trim().to_string())
                 .unwrap_or_default();
             if filename.is_empty() {
-                wallet_status.set("Error: Please select a wallet".to_string());
+                wallet_status.set("Please select a wallet".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             if secret.is_empty() {
-                wallet_status.set("Error: Wallet password is required".to_string());
+                wallet_status.set("Wallet password is required".to_string());
+                clear_status_after_delay(wallet_status.clone(), 5000);
+                return;
+            }
+            if !is_valid_password(&secret) {
+                wallet_status.set("Password must be at least 8 characters long".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
@@ -511,6 +516,7 @@ pub fn app() -> Html {
             let wallet_created = wallet_created.clone();
             let screen = screen.clone();
             let is_loading = is_loading.clone();
+            let open_secret_input_ref = open_secret_input_ref.clone();
             spawn_local(async move {
                 is_loading.set(true);
                 info!("Attempting to open wallet: {}", filename);
@@ -519,32 +525,47 @@ pub fn app() -> Html {
                     filename,
                 }).unwrap_or(JsValue::NULL);
                 let result = invoke("open_wallet", args).await;
-                if js_sys::Reflect::get(&result, &JsValue::from_str("error")).is_ok() {
-                    let error_msg = js_sys::Reflect::get(&result, &JsValue::from_str("error"))
-                        .map(|v| v.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| "Unknown error".to_string());
-                    wallet_status.set(format!("Error: {}", error_msg));
-                    error!("Failed to open wallet: {}", error_msg);
-                    clear_status_after_delay(wallet_status.clone(), 5000);
-                    is_loading.set(false);
-                } else if let Some(msg) = result.as_string() {
-                    if msg.contains("Success") {
-                        wallet_status.set("Wallet opened successfully!".to_string());
-                        wallet_created.set(true);
-                        screen.set(Screen::Main);
-                        info!("Wallet opened successfully, navigating to Main screen");
-                        clear_status_after_delay(wallet_status.clone(), 3000);
-                    } else {
-                        wallet_status.set(format!("Error: {}", msg));
-                        error!("Wallet open failed: {}", msg);
+                // Attempt to deserialize as ErrorResponse first
+                match serde_wasm_bindgen::from_value::<ErrorResponse>(result.clone()) {
+                    Ok(error_response) => {
+                        if error_response.error == "Incorrect password provided" {
+                            wallet_status.set("Incorrect password provided".to_string());
+                            error!("Failed to open wallet: incorrect password");
+                            // Clear the password input field
+                            if let Some(input) = open_secret_input_ref.cast::<HtmlInputElement>() {
+                                input.set_value("");
+                            }
+                        } else {
+                            wallet_status.set(format!("Error: {}", error_response.error));
+                            error!("Failed to open wallet: {}", error_response.error);
+                        }
                         clear_status_after_delay(wallet_status.clone(), 5000);
                         is_loading.set(false);
                     }
-                } else {
-                    error!("open_wallet failed with unexpected result: {:?}", result);
-                    wallet_status.set("Error: Failed to open wallet (check console for details)".to_string());
-                    clear_status_after_delay(wallet_status.clone(), 5000);
-                    is_loading.set(false);
+                    Err(_) => {
+                        // Try to interpret as a success response (string)
+                        match result.as_string() {
+                            Some(msg) if msg.contains("Success") => {
+                                wallet_status.set("Wallet opened successfully!".to_string());
+                                wallet_created.set(true);
+                                screen.set(Screen::Main);
+                                info!("Wallet opened successfully, navigating to Main screen");
+                                clear_status_after_delay(wallet_status.clone(), 3000);
+                            }
+                            Some(msg) => {
+                                wallet_status.set(format!("Error: {}", msg));
+                                error!("Wallet open failed: {}", msg);
+                                clear_status_after_delay(wallet_status.clone(), 5000);
+                                is_loading.set(false);
+                            }
+                            None => {
+                                error!("open_wallet returned unexpected result: {:?}", result);
+                                wallet_status.set("Failed to open wallet (unexpected response)".to_string());
+                                clear_status_after_delay(wallet_status.clone(), 5000);
+                                is_loading.set(false);
+                            }
+                        }
+                    }
                 }
             });
         })
@@ -563,17 +584,17 @@ pub fn app() -> Html {
                         Ok(_) => {
                             wallet_status.set("Mnemonic copied to clipboard!".to_string());
                             info!("Mnemonic copied to clipboard");
-                            clear_status_after_delay(wallet_status.clone(), 3000);
+                            clear_status_after_delay(wallet_status.clone(), 5000);
                         }
                         Err(e) => {
                             error!("Clipboard write failed: {:?}", e);
-                            wallet_status.set("Error: Failed to copy mnemonic".to_string());
+                            wallet_status.set("Failed to copy mnemonic".to_string());
                             clear_status_after_delay(wallet_status.clone(), 5000);
                         }
                     }
                 } else {
                     error!("Clipboard not available");
-                    wallet_status.set("Error: Clipboard not available".to_string());
+                    wallet_status.set("Clipboard not available".to_string());
                     clear_status_after_delay(wallet_status.clone(), 5000);
                 }
             });
@@ -598,22 +619,22 @@ pub fn app() -> Html {
                 .map(|input| input.value().trim().to_string())
                 .unwrap_or_default();
             if secret.is_empty() {
-                wallet_status.set("Error: Wallet password is required".to_string());
+                wallet_status.set("Wallet password is required".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             if filename.is_empty() {
-                wallet_status.set("Error: Wallet filename is required".to_string());
+                wallet_status.set("Wallet filename is required".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             if !is_valid_password(&secret) {
-                wallet_status.set("Error: Password must be at least 8 characters long".to_string());
+                wallet_status.set("Password must be at least 8 characters long".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             if !is_valid_filename(&filename) {
-                wallet_status.set("Error: Invalid filename (use letters, numbers, or underscores only)".to_string());
+                wallet_status.set("Invalid filename (use letters, numbers, or underscores only)".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
@@ -641,9 +662,9 @@ pub fn app() -> Html {
                             wallet_created.set(true);
                             screen.set(Screen::MnemonicDisplay(mnemonic.to_string()));
                             info!("Wallet created successfully, displaying mnemonic");
-                            clear_status_after_delay(wallet_status.clone(), 3000);
+                            clear_status_after_delay(wallet_status.clone(), 5000);
                         } else {
-                            wallet_status.set("Error: Mnemonic not found in response".to_string());
+                            wallet_status.set("Mnemonic not found in response".to_string());
                             error!("Mnemonic not found in create_wallet response");
                             clear_status_after_delay(wallet_status.clone(), 5000);
                             is_loading.set(false);
@@ -656,7 +677,7 @@ pub fn app() -> Html {
                     }
                 } else {
                     error!("create_wallet failed with unexpected result: {:?}", result);
-                    wallet_status.set("Error: Failed to create wallet (check console for details)".to_string());
+                    wallet_status.set("Failed to create wallet (check console for details)".to_string());
                     clear_status_after_delay(wallet_status.clone(), 5000);
                     is_loading.set(false);
                 }
@@ -687,33 +708,33 @@ pub fn app() -> Html {
                 .map(|input| input.value().trim().to_string())
                 .unwrap_or_default();
             if mnemonic.is_empty() {
-                wallet_status.set("Error: Mnemonic is required".to_string());
+                wallet_status.set("Mnemonic is required".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             if secret.is_empty() {
-                wallet_status.set("Error: Wallet password is required".to_string());
+                wallet_status.set("Wallet password is required".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             if filename.is_empty() {
-                wallet_status.set("Error: Wallet filename is required".to_string());
+                wallet_status.set("Wallet filename is required".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             let word_count = mnemonic.split_whitespace().count();
             if word_count != 24 {
-                wallet_status.set("Error: Mnemonic must be 24 words".to_string());
+                wallet_status.set("Mnemonic must be 24 words".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             if !is_valid_password(&secret) {
-                wallet_status.set("Error: Password must be at least 8 characters long".to_string());
+                wallet_status.set("Password must be at least 8 characters long".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
             if !is_valid_filename(&filename) {
-                wallet_status.set("Error: Invalid filename (use letters, numbers, or underscores only)".to_string());
+                wallet_status.set("Invalid filename (use letters, numbers, or underscores only)".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
@@ -749,7 +770,7 @@ pub fn app() -> Html {
                     }
                 } else {
                     error!("import_wallets failed with unexpected result: {:?}", result);
-                    wallet_status.set("Error: Failed to import wallet (check console for details)".to_string());
+                    wallet_status.set("Failed to import wallet".to_string());
                     clear_status_after_delay(wallet_status.clone(), 5000);
                     is_loading.set(false);
                 }
@@ -778,17 +799,17 @@ pub fn app() -> Html {
                 .map(|input| input.value().trim().parse::<u64>().unwrap_or(0))
                 .unwrap_or(0);
             if to_address.is_empty() || amount == 0 {
-                transaction_status.set("Error: Recipient address and amount are required".to_string());
+                transaction_status.set("Recipient address and amount are required".to_string());
                 clear_status_after_delay(transaction_status.clone(), 5000);
                 return;
             }
             if !to_address.starts_with("vecno:") {
-                transaction_status.set("Error: Invalid recipient address (must start with vecno:)".to_string());
+                transaction_status.set("Invalid recipient address (must start with vecno:)".to_string());
                 clear_status_after_delay(transaction_status.clone(), 5000);
                 return;
             }
             if !*wallet_created {
-                transaction_status.set("Error: No wallet is open".to_string());
+                transaction_status.set("No wallet is open".to_string());
                 clear_status_after_delay(transaction_status.clone(), 5000);
                 return;
             }
@@ -825,13 +846,13 @@ pub fn app() -> Html {
                         }
                         Err(e) => {
                             error!("list_transactions failed after send: {:?}", e);
-                            transaction_status.set("Error: Failed to refresh transactions".to_string());
+                            transaction_status.set("Failed to refresh transactions".to_string());
                             clear_status_after_delay(transaction_status.clone(), 5000);
                         }
                     }
                 } else {
                     error!("send_transaction failed with unexpected result: {:?}", result);
-                    transaction_status.set("Error: Failed to send transaction (check console for details)".to_string());
+                    transaction_status.set("Failed to send transaction".to_string());
                     clear_status_after_delay(transaction_status.clone(), 5000);
                 }
                 is_loading.set(false);

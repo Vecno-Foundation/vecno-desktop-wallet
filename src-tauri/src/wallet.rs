@@ -84,13 +84,23 @@ pub async fn open_wallet(filename: String, secret: String, state: State<'_, AppS
     let open_args = OpenArgs {
         filename: Some(filename_stem),
     };
-    if let Err(e) = store.open(&wallet_secret, open_args).await {
-        error!("Failed to open storage: {}", e);
-        if e.to_string().to_lowercase().contains("decrypt") || e.to_string().to_lowercase().contains("crypto") {
-            info!("Returning incorrect password error for storage open");
-            return Err(ErrorResponse { error: "Incorrect password".to_string() });
+
+    // Attempt to open the wallet storage and explicitly check for decryption errors
+    match store.open(&wallet_secret, open_args).await {
+        Ok(_) => {
+            info!("Wallet storage opened successfully");
         }
-        return Err(ErrorResponse { error: format!("Failed to open storage: {}", e) });
+        Err(e) => {
+            error!("Failed to open storage: {}", e);
+            // Check if the error is related to decryption (indicating wrong password)
+            if e.to_string().to_lowercase().contains("decrypt") || 
+               e.to_string().to_lowercase().contains("crypto") || 
+               e.to_string().to_lowercase().contains("invalid key") {
+                info!("Returning incorrect password error for storage open");
+                return Err(ErrorResponse { error: "Incorrect password provided".to_string() });
+            }
+            return Err(ErrorResponse { error: format!("Failed to open storage: {}", e) });
+        }
     }
 
     let network_id = NetworkId::new(NetworkType::Mainnet);
@@ -148,7 +158,7 @@ pub async fn open_wallet(filename: String, secret: String, state: State<'_, AppS
 
     if let Some(prv_key_data_id) = key_data_id {
         info!("Loading private key data for ID: {:?}", prv_key_data_id);
-        if let Err(e) = store
+        match store
             .as_prv_key_data_store()
             .map_err(|e| {
                 error!("Failed to access private key data store: {}", e);
@@ -157,12 +167,20 @@ pub async fn open_wallet(filename: String, secret: String, state: State<'_, AppS
             .load_key_data(&wallet_secret, &prv_key_data_id)
             .await
         {
-            error!("Failed to load private key data: {}", e);
-            if e.to_string().to_lowercase().contains("decrypt") || e.to_string().to_lowercase().contains("crypto") {
-                info!("Returning incorrect password error for key data");
-                return Err(ErrorResponse { error: "Incorrect password".to_string() });
+            Ok(_) => {
+                info!("Private key data loaded successfully");
             }
-            return Err(ErrorResponse { error: "No private key data found".to_string() });
+            Err(e) => {
+                error!("Failed to load private key data: {}", e);
+                // Check if the error is related to decryption (indicating wrong password)
+                if e.to_string().to_lowercase().contains("decrypt") || 
+                   e.to_string().to_lowercase().contains("crypto") || 
+                   e.to_string().to_lowercase().contains("invalid key") {
+                    info!("Returning incorrect password error for key data");
+                    return Err(ErrorResponse { error: "Incorrect password provided".to_string() });
+                }
+                return Err(ErrorResponse { error: format!("Failed to load private key data: {}", e) });
+            }
         }
     } else {
         error!("No private key data found in wallet");

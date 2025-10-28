@@ -1,6 +1,7 @@
 mod state;
 mod wallet;
-mod transactions;
+mod send_transactions;
+mod get_transactions;
 mod balance;
 mod node;
 
@@ -33,9 +34,9 @@ async fn main() {
             wallet::generate_mnemonic,
             wallet::get_address,
             balance::get_balance,
-            transactions::send_transaction,
+            send_transactions::send_transaction,
             wallet::list_wallets,
-            transactions::list_transactions,
+            get_transactions::list_transactions,
             wallet::open_wallet
         ])
         .run(tauri::generate_context!())

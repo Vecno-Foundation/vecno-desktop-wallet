@@ -62,7 +62,7 @@ pub async fn get_balance(address: String, state: State<'_, AppState>) -> Result<
             wallet_secret,
             None, // payment_secret
             0,    // start
-            1000, // extent (increased to cover more addresses)
+            1000, // extent
             128,  // window
             false, // sweep
             None, // fee_rate
@@ -71,8 +71,8 @@ pub async fn get_balance(address: String, state: State<'_, AppState>) -> Result<
             Some(StdArc::new(move |processed: usize, _, found_balance, txid| {
                 let value = balance_clone.clone();
                 tauri::async_runtime::spawn(async move {
-                    let mut balance_guard = value.lock().unwrap(); // Use unwrap for simplicity; handle errors in production
-                    *balance_guard = found_balance; // Dereference to update the u64 value
+                    let mut balance_guard = value.lock().unwrap();
+                    *balance_guard = found_balance;
                     if let Some(txid) = txid {
                         info!("Scan detected {} VE at index {}; transfer txid: {}", found_balance, processed, txid);
                     } else if processed > 0 {
@@ -86,7 +86,7 @@ pub async fn get_balance(address: String, state: State<'_, AppState>) -> Result<
         .await;
 
     // Retrieve the balance
-    let balance_value = *balance.lock().unwrap(); // Use unwrap for simplicity; handle errors in production
+    let balance_value = *balance.lock().unwrap();
     info!("Balance scan completed for address {}: {} VE", address, balance_value);
     Ok(balance_value.to_string())
 }
