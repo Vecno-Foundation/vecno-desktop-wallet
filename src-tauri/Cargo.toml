@@ -28,12 +28,13 @@ vecno-wrpc-client = { git = "https://github.com/Yooshikii/testnet1.git", branch 
 vecno-rpc-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-consensus-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-addresses = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
-vecno-consensus-client = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
+vecno-wallet-pskt = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 
 # Asynchronous runtime
 tokio = { version = "1", features = ["full"] }
 async-std = "1.12"
 futures-lite = "2.6.1"
+chrono = "0.4.42"
 
 # Web and WASM
 yew = { version = "0.21", features = ["csr"] }

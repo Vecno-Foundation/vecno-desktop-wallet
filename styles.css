@@ -11,7 +11,7 @@
   --background-dark: #111827; /* Deep dark gray for main background */
   --surface-dark: #1f2937; /* Slightly lighter surface for containers */
   --text-dark: #ffffff; /* Light gray for text in dark mode */
-  --text-muted: #ffffff; /* Muted text for secondary information */
+  --text-muted: #9ca3af; /* Muted text for secondary information */
   --accent-color: #2dd4bf; /* Bright teal for success states */
   --error-color: #f87171; /* Soft red for errors */
   --border-radius: 8px; /* Slightly tighter radius for modern look */
@@ -140,7 +140,7 @@ h3 {
   font-size: 1.5rem;
   font-weight: 500;
   color: var(--text-dark);
-  margin: 1rem 0;
+  margin: 1.5rem 0 1rem;
 }
 
 /* Logo */
@@ -282,18 +282,205 @@ select {
   list-style: none;
   padding: 0;
   max-width: 100%;
-  max-height: 200px;
-  overflow-y: auto;
+  border: 1px solid var(--border-color); /* Subtle border around the list */
+  border-radius: var(--border-radius);
+  background: rgba(255, 255, 255, 0.02); /* Very subtle background for the list container */
 }
 
-.address-list li, .transaction-list li {
-  background: rgba(255, 255, 255, 0.05);
+/* Transaction container for arrows */
+.transaction-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+/* Transaction list: Horizontal scroll for single-item viewing with snap, no scrollbar */
+.transaction-list {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none; /* For Firefox - hide scrollbar */
+  -ms-overflow-style: none; /* For Internet Explorer and Edge - hide scrollbar */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  max-height: none; /* Remove height limit for horizontal */
+  padding: 1rem 1rem; /* Reduced padding since no arrows */
+  scroll-behavior: smooth; /* Smooth scroll behavior */
+  flex: 1;
+  cursor: grab; /* Indicate draggable */
+  user-select: none; /* Prevent text selection during drag */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE10+ */
+}
+
+.transaction-list:active {
+  cursor: grabbing; /* Fallback for native drag */
+}
+
+.transaction-list::-webkit-scrollbar {
+  display: none; /* For Chrome, Safari and Opera - hide scrollbar */
+}
+
+/* Hide navigation arrows */
+.transaction-prev,
+.transaction-next {
+  display: none;
+}
+
+/* Each transaction item: Full width, snap aligned, clickable */
+.transaction-list li {
+  flex: 0 0 100%; /* Full width, no shrink/grow */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)); /* Subtler gradient for single card */
   border-radius: var(--border-radius);
-  padding: 1rem;
-  margin: 0.5rem 0;
-  box-shadow: var(--shadow);
-  font-size: 0.9rem;
-  border: 1px solid var(--border-color);
+  padding: 1.25rem; /* Reduced padding for smaller size */
+  margin: 0 0.5rem; /* Reduced horizontal margin for separation */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25); /* Deeper shadow for standalone emphasis */
+  font-size: 0.95rem; /* Smaller base font for compactness */
+  border: 1px solid rgba(255, 255, 255, 0.08); /* Slightly stronger border for definition */
+  transition: all 0.3s ease; /* Smooth transitions */
+  position: relative;
+  overflow: hidden; /* For potential pseudo-elements */
+  scroll-snap-align: start; /* Snap to start of each item */
+  display: block; /* Change to block for <br> compatibility */
+  min-width: 0; /* Allow flex shrink if needed */
+  cursor: pointer; /* Indicate clickable */
+  outline: none; /* Remove default outline */
+  user-select: none; /* Prevent text selection */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE10+ */
+}
+
+/* Focus styles for clicked transaction */
+.transaction-list li:focus {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06)); /* Highlight on focus */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 3px var(--primary-color); /* Enhanced shadow and outline */
+  transform: translateY(-2px); /* Slight lift on focus */
+}
+
+/* Hover effect for the current visible card */
+.transaction-list li:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06)); /* Brighter on hover */
+  transform: translateY(-4px); /* More pronounced lift */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35); /* Enhanced shadow on hover */
+}
+
+/* Add a subtle top border accent for each transaction */
+.transaction-list li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+/* TXID styling - more prominent, full line */
+.transaction-list li strong {
+  color: var(--primary-color); /* Blue for TXID */
+  font-size: 0.9rem; /* Smaller for single view */
+  display: block;
+  margin-bottom: 0.75rem; /* Reduced space after TXID */
+  font-weight: 700; /* Bolder weight */
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap; /* Ensure long TXIDs don't break layout */
+  letter-spacing: 0.5px; /* Subtle spacing for professionalism */
+  word-break: break-all; /* Allow breaking for very long TXIDs */
+}
+
+/* Ensure <br> elements create proper line breaks with spacing */
+.transaction-list li br {
+  display: block;
+  margin: 0.5rem 0; /* Reduced vertical spacing between lines */
+  line-height: 1.2; /* Ensure proper line height */
+}
+
+/* Style for To: line (assuming inline after strong) */
+.transaction-list li > strong + * {
+  display: block;
+  margin-bottom: 0.75rem; /* Reduced space after To line */
+  word-break: break-all; /* Break long addresses */
+}
+
+/* Amount line styling - emphasized, ensure space after VE */
+.transaction-list li br + * {
+  color: var(--accent-color); /* Teal for amounts */
+  font-weight: 700; /* Bolder for emphasis */
+  font-size: 1.1rem; /* Smaller standout size */
+  display: block;
+  margin-bottom: 0.75rem; /* Reduced space after amount to separate from timestamp */
+  word-break: break-word; /* Ensure VE doesn't concatenate oddly */
+}
+
+/* Timestamp styling - after amount br */
+.transaction-list li br:nth-of-type(2) + * {
+  color: var(--text-muted);
+  font-size: 0.85rem; /* Smaller timestamp */
+  font-style: italic;
+  text-align: right;
+  margin-top: 0.25rem; /* Reduced top margin for spacing */
+}
+
+/* Address list remains as multi-item vertical list */
+.address-list {
+  max-height: 400px; /* Keep for addresses */
+  overflow-y: auto;
+  display: block; /* Ensure vertical for addresses */
+}
+
+.address-list::-webkit-scrollbar {
+  width: 6px; /* Vertical scrollbar for address list */
+}
+
+.address-list::-webkit-scrollbar-track {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.address-list::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 3px;
+}
+
+.address-list::-webkit-scrollbar-thumb:hover {
+  background: #60a5fa;
+}
+
+.address-list li {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)); /* Subtle gradient for depth */
+  border-radius: var(--border-radius);
+  padding: 1.25rem; /* Slightly more padding for breathing room */
+  margin: 0.75rem; /* Increased margin for better separation */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* Softer shadow for subtlety */
+  font-size: 0.95rem; /* Slightly larger font for readability */
+  border: 1px solid rgba(255, 255, 255, 0.05); /* Softer border */
+  transition: all 0.3s ease; /* Smooth transitions */
+  position: relative;
+  overflow: hidden; /* For potential pseudo-elements */
+}
+
+.address-list li::before {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+  opacity: 0.6;
+  color: var(--accent-color);
+}
+
+.address-list li:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)); /* Brighter on hover */
+  transform: translateX(4px); /* Subtle slide for engagement */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); /* Enhanced shadow on hover */
 }
 
 /* Instruction text for mnemonic screen */
@@ -476,6 +663,26 @@ a:hover {
   }
   .logo.vecno {
     max-width: 120px;
+  }
+  /* Adjust transaction items for mobile */
+  .transaction-list li {
+    margin: 0 0.25rem;
+    padding: 1rem;
+  }
+  .transaction-list li br {
+    margin: 0.25rem 0; /* Further reduced margin on mobile */
+  }
+  .transaction-list li strong {
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .transaction-list li br + * {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .transaction-list li br:nth-of-type(2) + * {
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
   }
 }
 

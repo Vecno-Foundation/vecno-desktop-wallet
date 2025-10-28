@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
-use web_sys::{HtmlInputElement, HtmlSelectElement, BeforeUnloadEvent};
+use web_sys::{HtmlInputElement, HtmlSelectElement, BeforeUnloadEvent, HtmlUListElement};
 use log::{error, info, debug};
 
 #[wasm_bindgen]
@@ -18,6 +18,7 @@ struct WalletAddress {
     receive_address: String,
     change_address: String,
 }
+
 
 #[derive(Serialize, Deserialize)]
 struct CreateWalletArgs {
@@ -50,13 +51,12 @@ struct WalletFile {
     path: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-struct Transaction {
-    txid: String,
-    from_address: String,
-    to_address: String,
-    amount: u64,
-    timestamp: String,
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Transaction {
+    pub txid: String,
+    pub to_address: String,
+    pub amount: u64,
+    pub timestamp: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -94,6 +94,15 @@ fn format_balance(balance: u64) -> String {
     } else {
         let ve = balance as f64 / 100_000_000.0;
         format!("Balance: {:.8} VE", ve)
+    }
+}
+
+fn format_amount(amount: u64) -> String {
+    if amount == 0 {
+        "0 VE".to_string()
+    } else {
+        let ve = amount as f64 / 100_000_000.0;
+        format!("{:.8} VE", ve)
     }
 }
 
@@ -225,6 +234,7 @@ pub fn app() -> Html {
     let node_connected = use_state(|| false);
     let node_info = use_state(|| NodeInfo { url: String::new() });
     let transactions = use_state(|| Vec::<Transaction>::new());
+    let transaction_list_ref = use_node_ref();
 
     // Derive version from Cargo.toml
     const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -435,6 +445,31 @@ pub fn app() -> Html {
             || {}
         });
     }
+
+    // Transaction navigation callbacks
+    let prev_transaction = {
+        let list_ref = transaction_list_ref.clone();
+        Callback::from(move |_| {
+            if let Some(ul) = list_ref.cast::<HtmlUListElement>() {
+                let width = ul.client_width() as f64;
+                let current_scroll = ul.scroll_left() as f64;
+                let new_scroll = (current_scroll - width).max(0.0) as i32;
+                ul.set_scroll_left(new_scroll);
+            }
+        })
+    };
+
+    let next_transaction = {
+        let list_ref = transaction_list_ref.clone();
+        Callback::from(move |_| {
+            if let Some(ul) = list_ref.cast::<HtmlUListElement>() {
+                let width = ul.client_width() as f64;
+                let current_scroll = ul.scroll_left() as f64;
+                let new_scroll = (current_scroll + width) as i32;
+                ul.set_scroll_left(new_scroll);
+            }
+        })
+    };
 
     let proceed_to_create = {
         let screen = screen.clone();
@@ -1133,19 +1168,53 @@ pub fn app() -> Html {
                             html! { <p aria-live="polite">{"No recent transactions found."}</p> }
                         } else {
                             html! {
-                                <ul class="transaction-list" aria-label="Recent transactions">
-                                    { for (*transactions).iter().map(|tx| {
-                                        html! {
-                                            <li>
-                                                <strong>{ format!("TXID: {}", tx.txid) }</strong><br />
-                                                { "From: " }{ &tx.from_address }<br />
-                                                { "To: " }{ &tx.to_address }<br />
-                                                { "Amount: " }{ format!("{} VE", tx.amount) }<br />
-                                                { "Time: " }{ &tx.timestamp }
-                                            </li>
-                                        }
-                                    }) }
-                                </ul>
+                                <div class="transaction-container">
+                                    <button
+                                        class="transaction-prev"
+                                        onclick={prev_transaction.clone()}
+                                        disabled={transactions.is_empty()}
+                                        aria-label="Previous transaction"
+                                    />
+                                    <ul
+                                        ref={&transaction_list_ref}
+                                        class="transaction-list"
+                                        aria-label="Recent transactions"
+                                    >
+                                        { for (*transactions).iter().enumerate().map(|(index, tx)| {
+                                            let list_ref = transaction_list_ref.clone();
+                                            let click_callback = {
+                                                let list_ref = list_ref.clone();
+                                                let index = index;
+                                                Callback::from(move |_: MouseEvent| {
+                                                    if let Some(ul) = list_ref.cast::<HtmlUListElement>() {
+                                                        let width = ul.client_width() as f64;
+                                                        let scroll_pos = (index as f64 * width).round() as i32;
+                                                        ul.set_scroll_left(scroll_pos);
+                                                    }
+                                                })
+                                            };
+                                            html! {
+                                                <li
+                                                    onclick={click_callback}
+                                                    tabindex="0"
+                                                    role="button"
+                                                    aria-label={format!("View transaction {}", tx.txid)}
+                                                >
+                                                    <strong>{ format!("TXID: {}", tx.txid) }</strong><br />
+                                                    { "To: " }{ &tx.to_address }<br />
+                                                    { "Amount: " }{ format_amount(tx.amount) }<br />
+                                                    { "Timestamp: " }{ &tx.timestamp }
+                                                </li>
+                                            }
+                                        }) }
+                                    </ul>
+                                    <button
+                                        class="transaction-next"
+                                        onclick={next_transaction.clone()}
+                                        disabled={transactions.is_empty()}
+                                        aria-label="Next transaction"
+                                    />
+                                </div>
                             }
                         }}
                     </main>
@@ -1163,17 +1232,23 @@ pub fn run_app() {
         let document = window.document().expect("document not available");
 
         let closure = Closure::wrap(Box::new(move |event: web_sys::KeyboardEvent| {
-            let key = event.key();
-            if key.is_empty() || key == "undefined" {
-                error!("Keydown event has invalid or undefined key: {:?}", key);
-                return;
-            }
+            let key_js: JsValue = event.key().into();
+            if let Some(key_str) = key_js.as_string() {
+                if key_str.is_empty() {
+                    error!("Keydown event has empty key");
+                    return;
+                }
 
-            if key == "F5" || 
-               (event.ctrl_key() && key == "r") || 
-               (event.meta_key() && key == "r") {
-                event.prevent_default();
-                info!("Prevented refresh action for key: {}", key);
+                if key_str == "F5" || 
+                   (event.ctrl_key() && key_str == "r") || 
+                   (event.meta_key() && key_str == "r") {
+                    event.prevent_default();
+                    info!("Prevented refresh action for key: {}", key_str);
+                }
+            } else {
+                // Key is undefined or not a string
+                error!("Keydown event has invalid or non-string key: {:?}", key_js);
+                return;
             }
         }) as Box<dyn FnMut(_)>);
 
