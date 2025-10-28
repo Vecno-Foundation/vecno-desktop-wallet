@@ -1,48 +1,105 @@
 use crate::state::{AppState, ErrorResponse, NodeInfo};
 use tauri::{command, State};
 use vecno_consensus_core::network::{NetworkId, NetworkType};
-use vecno_wrpc_client::prelude::{WrpcEncoding};
+use vecno_wrpc_client::prelude::WrpcEncoding;
 use log::{error, info};
 
 #[command]
 pub async fn is_node_connected(state: State<'_, AppState>) -> Result<bool, ErrorResponse> {
+    // 1. Fast-path: check the in-memory cache
+    {
+        let cache_guard = state.node_cache.lock().await;
+        if cache_guard.url.is_some() {
+            info!("Node already known to be connected (cached).");
+            return Ok(true);
+        }
+    }
+
+    // 2. Cache miss – need to talk to the resolver
     let guard = state.resolver.lock().await;
     let resolver = guard.as_ref().ok_or_else(|| {
         let msg = "Resolver not initialized";
         error!("{}", msg);
         ErrorResponse { error: msg.to_string() }
     })?;
+
     let network_id = NetworkId::new(NetworkType::Mainnet);
-    info!("Attempting to connect to resolver with network ID: {:?}", network_id);
+    info!("Attempting to resolve node URL (cache miss) for network ID: {:?}", network_id);
+
     match resolver.get_url(WrpcEncoding::Borsh, network_id).await {
         Ok(url) => {
             info!("Successfully resolved node URL: {}", url);
+            // 3. Populate the cache for next calls
+            {
+                let mut cache_guard = state.node_cache.lock().await;
+                cache_guard.url = Some(url.clone());
+            }
             Ok(true)
         }
         Err(e) => {
-            error!("Node connection failed: {}. Check Resolvers.toml for valid endpoints", e);
-            Err(ErrorResponse { error: format!("Node connection failed: {}. Ensure Resolver is reachable or run a local node.", e) })
+            // 4. On error clear the cache (so we retry next time)
+            {
+                let mut cache_guard = state.node_cache.lock().await;
+                cache_guard.url = None;
+            }
+            error!(
+                "Node connection failed: {}. Check Resolvers.toml for valid endpoints",
+                e
+            );
+            Err(ErrorResponse {
+                error: format!(
+                    "Node connection failed: {}. Ensure Resolver is reachable or run a local node.",
+                    e
+                ),
+            })
         }
     }
 }
 
 #[command]
 pub async fn get_node_info(state: State<'_, AppState>) -> Result<NodeInfo, ErrorResponse> {
+    {
+        let cache_guard = state.node_cache.lock().await;
+        if let Some(url) = &cache_guard.url {
+            info!("Returning cached node URL: {}", url);
+            return Ok(NodeInfo { url: url.clone() });
+        }
+    }
+
     let guard = state.resolver.lock().await;
     let resolver = guard.as_ref().ok_or_else(|| {
         let msg = "Resolver not initialized";
         error!("{}", msg);
         ErrorResponse { error: msg.to_string() }
     })?;
+
     let network_id = NetworkId::new(NetworkType::Mainnet);
     match resolver.get_url(WrpcEncoding::Borsh, network_id).await {
         Ok(url) => {
             info!("Retrieved node URL: {}", url);
+            // Store in cache for `is_node_connected`
+            {
+                let mut cache_guard = state.node_cache.lock().await;
+                cache_guard.url = Some(url.clone());
+            }
             Ok(NodeInfo { url })
         }
         Err(e) => {
-            error!("Failed to retrieve node URL: {}. Check Resolvers.toml for valid endpoints.", e);
-            Err(ErrorResponse { error: format!("Failed to retrieve node info: {}. Ensure seed.vecnoscan.org is reachable.", e) })
+            // Clear cache on failure
+            {
+                let mut cache_guard = state.node_cache.lock().await;
+                cache_guard.url = None;
+            }
+            error!(
+                "Failed to retrieve node URL: {}. Check Resolvers.toml for valid endpoints.",
+                e
+            );
+            Err(ErrorResponse {
+                error: format!(
+                    "Failed to retrieve node info: {}. Ensure seed.vecnoscan.org is reachable.",
+                    e
+                ),
+            })
         }
     }
 }

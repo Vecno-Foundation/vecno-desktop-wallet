@@ -92,7 +92,7 @@ fn format_balance(balance: u64) -> String {
     if balance == 0 {
         "Balance: 0 VE".to_string()
     } else {
-        let ve = balance as f64 / 100_000_000.0; // Convert to VE (8 decimals)
+        let ve = balance as f64 / 100_000_000.0;
         format!("Balance: {:.8} VE", ve)
     }
 }
@@ -723,8 +723,8 @@ pub fn app() -> Html {
                 return;
             }
             let word_count = mnemonic.split_whitespace().count();
-            if word_count != 24 {
-                wallet_status.set("Mnemonic must be 24 words".to_string());
+            if word_count != 12 && word_count != 24 {
+                wallet_status.set("Mnemonic must be 12 or 24 words".to_string());
                 clear_status_after_delay(wallet_status.clone(), 5000);
                 return;
             }
@@ -953,7 +953,7 @@ pub fn app() -> Html {
                 },
                 Screen::ImportWallet => html! {
                     <main class="container" role="main" aria-label="Import Wallet">
-                        <p>{"Import an existing wallet using your 24-word mnemonic phrase."}</p>
+                        <p>{"Import an existing wallet using your 12 or 24-word mnemonic phrase."}</p>
                         <form class="row" onsubmit={import_wallets} aria-label="Import wallet form">
                             <label for="import-filename-input" class="sr-only">{"Wallet filename"}</label>
                             <input
@@ -967,7 +967,7 @@ pub fn app() -> Html {
                             <input
                                 id="import-mnemonic-input"
                                 ref={import_mnemonic_input_ref}
-                                placeholder="Enter 24-word mnemonic"
+                                placeholder="Enter 12 or 24-word mnemonic"
                                 class="input"
                                 aria-required="true"
                             />
@@ -1007,7 +1007,7 @@ pub fn app() -> Html {
                         <main class="container" role="main" aria-label="Wallet Created">
                             <h2>{"Wallet Created Successfully"}</h2>
                             <p class="instruction-text">
-                                {"Please save your 24-word mnemonic phrase securely. This is critical for recovering your wallet."}
+                                {"Please save your 12 or 24-word mnemonic phrase securely. This is critical for recovering your wallet."}
                             </p>
                             <div class="mnemonic-box" aria-label="Mnemonic phrase">
                                 <p>{ &mnemonic_clone }</p>

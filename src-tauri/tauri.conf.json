@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws://localhost:8110 wss://wallet.vecnoscan.org wss://wallet2.vecnoscan.org"
+      "csp": null
     }
   },
   "bundle": {
