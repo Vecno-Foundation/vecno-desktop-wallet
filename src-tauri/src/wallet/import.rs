@@ -6,7 +6,7 @@ use vecno_wallet_core::storage::interface::CreateArgs;
 use vecno_wallet_core::wallet::args::{AccountCreateArgsBip32, PrvKeyDataCreateArgs};
 use vecno_wallet_core::storage::keydata::PrvKeyDataVariantKind;
 use bip39::Mnemonic;
-use log::{error, info};
+use log::{error, info, debug};
 use std::sync::Arc;
 use vecno_wrpc_client::prelude::{Resolver, WrpcEncoding, ConnectOptions, ConnectStrategy};
 use vecno_consensus_core::network::{NetworkId, NetworkType};
@@ -152,9 +152,11 @@ pub async fn import_wallets(mnemonic: String, secret: String, filename: String, 
     let mut wallet_state = state.wallet.lock().await;
     let mut resolver_state = state.resolver.lock().await;
     let mut secret_state = state.wallet_secret.lock().await;
+    let mut mnemonic_state = state.mnemonic.lock().await;
     *wallet_state = Some(wallet.clone());
     *resolver_state = Some(resolver);
     *secret_state = Some(wallet_secret);
-    info!("Wallet successfully imported at {}", storage_path.display());
+    *mnemonic_state = Some(mnemonic.to_string());
+    debug!("Wallet successfully imported at {}", storage_path.display());
     Ok(format!("Success: Wallet imported at {}", storage_path.display()))
 }

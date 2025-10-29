@@ -150,9 +150,12 @@ pub async fn create_wallet(secret: String, filename: String, state: State<'_, Ap
     let mut wallet_state = state.wallet.lock().await;
     let mut resolver_state = state.resolver.lock().await;
     let mut secret_state = state.wallet_secret.lock().await;
+    let mut mnemonic_state = state.mnemonic.lock().await;
     *wallet_state = Some(wallet.clone());
     *resolver_state = Some(resolver);
     *secret_state = Some(wallet_secret);
+    *mnemonic_state = Some(mnemonic.clone());
+
     info!("Wallet successfully created at {}", storage_path.display());
     Ok(format!("Success: Wallet created at {} with mnemonic: {}", storage_path.display(), mnemonic))
 }

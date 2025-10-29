@@ -42,6 +42,7 @@ struct GetBalanceArgs {
 struct SendTransactionArgs {
     #[serde(rename = "toAddress")]
     to_address: String,
+    /// Amount in **VENI** (1 VE = 100_000_000 VENI)
     amount: u64,
 }
 
@@ -103,6 +104,20 @@ fn format_amount(amount: u64) -> String {
     } else {
         let ve = amount as f64 / 100_000_000.0;
         format!("{:.8} VE", ve)
+    }
+}
+
+/// Convert VE (as string) → VENI (u64)
+fn ve_to_veni(ve_str: &str) -> Option<u64> {
+    let ve = ve_str.trim().parse::<f64>().ok()?;
+    if ve <= 0.0 {
+        return None;
+    }
+    let veni = (ve * 100_000_000.0).round() as u64;
+    if veni == 0 {
+        None
+    } else {
+        Some(veni)
     }
 }
 
@@ -172,7 +187,9 @@ async fn fetch_balance(
                 error!("get_balance attempt {} failed for address {}: {:?}", attempt, address, e);
                 match serde_wasm_bindgen::from_value::<ErrorResponse>(result.clone()) {
                     Ok(error_response) => {
-                        if error_response.error.contains("Failed to scan for UTXOs") || error_response.error.contains("Failed to connect to node") {
+                        if error_response.error.contains("Failed to scan for UTXOs")
+                            || error_response.error.contains("Failed to connect to node")
+                        {
                             attempt += 1;
                             if attempt > max_attempts {
                                 error!("get_balance failed after {} attempts for address {}", max_attempts, address);
@@ -236,10 +253,9 @@ pub fn app() -> Html {
     let transactions = use_state(|| Vec::<Transaction>::new());
     let transaction_list_ref = use_node_ref();
 
-    // Derive version from Cargo.toml
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-    // Fetch node connection status and node info
+    // Node connection check
     {
         let node_connected = node_connected.clone();
         let node_info = node_info.clone();
@@ -560,13 +576,11 @@ pub fn app() -> Html {
                     filename,
                 }).unwrap_or(JsValue::NULL);
                 let result = invoke("open_wallet", args).await;
-                // Attempt to deserialize as ErrorResponse first
                 match serde_wasm_bindgen::from_value::<ErrorResponse>(result.clone()) {
                     Ok(error_response) => {
                         if error_response.error == "Incorrect password provided" {
                             wallet_status.set("Incorrect password provided".to_string());
                             error!("Failed to open wallet: incorrect password");
-                            // Clear the password input field
                             if let Some(input) = open_secret_input_ref.cast::<HtmlInputElement>() {
                                 input.set_value("");
                             }
@@ -578,7 +592,6 @@ pub fn app() -> Html {
                         is_loading.set(false);
                     }
                     Err(_) => {
-                        // Try to interpret as a success response (string)
                         match result.as_string() {
                             Some(msg) if msg.contains("Success") => {
                                 wallet_status.set("Wallet opened successfully!".to_string());
@@ -823,23 +836,36 @@ pub fn app() -> Html {
         let addresses = addresses.clone();
         let balance = balance.clone();
         let wallet_status = wallet_status.clone();
+
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
+
             let to_address = to_address_input_ref
                 .cast::<HtmlInputElement>()
                 .map(|input| input.value().trim().to_string())
                 .unwrap_or_default();
-            let amount = amount_input_ref
+
+            let amount_ve_str = amount_input_ref
                 .cast::<HtmlInputElement>()
-                .map(|input| input.value().trim().parse::<u64>().unwrap_or(0))
-                .unwrap_or(0);
-            if to_address.is_empty() || amount == 0 {
+                .map(|input| input.value().trim().to_string())
+                .unwrap_or_default();
+
+            let amount_veni = match ve_to_veni(&amount_ve_str) {
+                Some(s) => s,
+                None => {
+                    transaction_status.set("Invalid amount – must be > 0 VE".to_string());
+                    clear_status_after_delay(transaction_status.clone(), 5000);
+                    return;
+                }
+            };
+
+            if to_address.is_empty() || amount_veni == 0 {
                 transaction_status.set("Recipient address and amount are required".to_string());
                 clear_status_after_delay(transaction_status.clone(), 5000);
                 return;
             }
             if !to_address.starts_with("vecno:") {
-                transaction_status.set("Invalid recipient address (must start with vecno:)".to_string());
+                transaction_status.set("Invalid address (must start with vecno:)".to_string());
                 clear_status_after_delay(transaction_status.clone(), 5000);
                 return;
             }
@@ -848,45 +874,43 @@ pub fn app() -> Html {
                 clear_status_after_delay(transaction_status.clone(), 5000);
                 return;
             }
+
             let transaction_status = transaction_status.clone();
             let is_loading = is_loading.clone();
             let transactions = transactions.clone();
             let addresses = addresses.clone();
             let balance = balance.clone();
             let wallet_status = wallet_status.clone();
+
             spawn_local(async move {
                 is_loading.set(true);
-                info!("Sending transaction to {} with amount {} VE", to_address, amount);
-                let args = serde_wasm_bindgen::to_value(&SendTransactionArgs { to_address, amount }).unwrap_or(JsValue::NULL);
+                info!("Sending {} VE ({} VENI) to {}", amount_ve_str, amount_veni, to_address);
+                let args = serde_wasm_bindgen::to_value(&SendTransactionArgs {
+                    to_address,
+                    amount: amount_veni,
+                }).unwrap_or(JsValue::NULL);
                 let result = invoke("send_transaction", args).await;
+
                 if js_sys::Reflect::get(&result, &JsValue::from_str("error")).is_ok() {
                     let error_msg = js_sys::Reflect::get(&result, &JsValue::from_str("error"))
                         .map(|v| v.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| "Unknown error".to_string());
                     transaction_status.set(format!("Error: {}", error_msg));
-                    error!("Failed to send transaction: {}", error_msg);
+                    error!("Send failed: {}", error_msg);
                     clear_status_after_delay(transaction_status.clone(), 5000);
                 } else if let Some(msg) = result.as_string() {
                     transaction_status.set(format!("Success: {}", msg));
-                    info!("Transaction sent successfully: {}", msg);
+                    info!("Transaction sent: {}", msg);
                     clear_status_after_delay(transaction_status.clone(), 3000);
+
                     let tx_result = invoke("list_transactions", JsValue::NULL).await;
-                    match serde_wasm_bindgen::from_value::<Vec<Transaction>>(tx_result) {
-                        Ok(txns) => {
-                            transactions.set(txns);
-                            info!("Refreshed transactions after send");
-                            if !(*addresses).is_empty() {
-                                fetch_balance(addresses.clone(), balance.clone(), wallet_status.clone(), is_loading.clone()).await;
-                            }
-                        }
-                        Err(e) => {
-                            error!("list_transactions failed after send: {:?}", e);
-                            transaction_status.set("Failed to refresh transactions".to_string());
-                            clear_status_after_delay(transaction_status.clone(), 5000);
-                        }
+                    if let Ok(txns) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(tx_result) {
+                        transactions.set(txns);
+                    }
+                    if !(*addresses).is_empty() {
+                        fetch_balance(addresses.clone(), balance.clone(), wallet_status.clone(), is_loading.clone()).await;
                     }
                 } else {
-                    error!("send_transaction failed with unexpected result: {:?}", result);
                     transaction_status.set("Failed to send transaction".to_string());
                     clear_status_after_delay(transaction_status.clone(), 5000);
                 }
@@ -1140,9 +1164,11 @@ pub fn app() -> Html {
                             <input
                                 id="amount-input"
                                 ref={amount_input_ref}
-                                type="number"
-                                placeholder="Amount (VE)"
-                                min="1"
+                                type="text"
+                                inputmode="decimal"
+                                placeholder="Amount to send (VE)"
+                                step="any"
+                                min="0.00001"
                                 disabled={*is_loading || !*wallet_created}
                                 class="input"
                                 aria-required="true"
@@ -1246,9 +1272,7 @@ pub fn run_app() {
                     info!("Prevented refresh action for key: {}", key_str);
                 }
             } else {
-                // Key is undefined or not a string
                 error!("Keydown event has invalid or non-string key: {:?}", key_js);
-                return;
             }
         }) as Box<dyn FnMut(_)>);
 

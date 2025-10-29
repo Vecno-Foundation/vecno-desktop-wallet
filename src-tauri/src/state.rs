@@ -32,9 +32,11 @@ pub struct AppState {
     /// Resolver that can turn a `NetworkId` into a concrete wRPC endpoint.
     pub resolver: Mutex<Option<Resolver>>,
 
-    /// The secret (seed/phrase) of the currently opened wallet – kept in memory
-    /// only while the wallet is open.
+    /// The encryption password of the currently opened wallet – used to decrypt storage.
     pub wallet_secret: Mutex<Option<Secret>>,
+
+    /// The mnemonic phrase (in-memory only while wallet is open).
+    pub mnemonic: Mutex<Option<String>>,
 
     /// Cached node URL – avoids hitting the resolver on every `is_node_connected`
     /// call once we know a valid endpoint.

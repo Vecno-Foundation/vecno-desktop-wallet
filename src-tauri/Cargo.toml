@@ -29,11 +29,14 @@ vecno-rpc-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "
 vecno-consensus-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-addresses = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-wallet-pskt = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
+vecno-consensus-client = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
+vecno-bip32 = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 
 # Asynchronous runtime
 tokio = { version = "1", features = ["full"] }
 async-std = "1.12"
 futures-lite = "2.6.1"
+futures-util = "0.3.31"
 chrono = "0.4.42"
 
 # Web and WASM
@@ -48,10 +51,12 @@ log = "0.4"
 env_logger = "0.11.8"
 wasm-logger = "0.2"
 console_error_panic_hook = "0.1.7"
+winnow = "0.7.13"
 
 # Workflow and RPC
 workflow-core = "0.18.0"
 workflow-rpc = { version = "0.18.0", default-features = false, features = ["rustls-tls-webpki-roots"] }
+borsh = { version = "1.5.7", features = ["rc"] }
 
 # Cryptography and utilities
 bip39 = { version = "2.2", features = [] }

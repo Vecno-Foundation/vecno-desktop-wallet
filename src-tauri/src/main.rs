@@ -25,6 +25,7 @@ async fn main() {
             wallet: Mutex::new(None),
             resolver: Mutex::new(Some(resolver)),
             wallet_secret: Mutex::new(None),
+            mnemonic: Mutex::new(None),  
             node_cache: Mutex::new(NodeCache::default()),
         })
         .invoke_handler(tauri::generate_handler![
