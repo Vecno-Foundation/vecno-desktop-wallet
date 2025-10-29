@@ -255,55 +255,57 @@ pub fn app() -> Html {
 
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-    // Node connection check
+
     {
         let node_connected = node_connected.clone();
         let node_info = node_info.clone();
-        let is_loading = is_loading.clone();
         let wallet_status = wallet_status.clone();
-        use_effect_with((), move |_| {
+        use_effect_with(wallet_created.clone(), move |created| {
             let node_connected = node_connected.clone();
             let node_info = node_info.clone();
-            let is_loading = is_loading.clone();
             let wallet_status = wallet_status.clone();
-            spawn_local(async move {
-                is_loading.set(true);
-                info!("Checking node connection status");
-                let conn_result = invoke("is_node_connected", JsValue::NULL).await;
-                match serde_wasm_bindgen::from_value::<bool>(conn_result) {
-                    Ok(connected) => {
-                        node_connected.set(connected);
-                        info!("Node connection status: {}", connected);
-                        if !connected {
-                            wallet_status.set("Warning: Not connected to Vecno node".to_string());
-                            node_info.set(NodeInfo { url: "Not connected".to_string() });
-                            clear_status_after_delay(wallet_status.clone(), 5000);
-                        } else {
-                            let info_result = invoke("get_node_info", JsValue::NULL).await;
-                            match serde_wasm_bindgen::from_value::<NodeInfo>(info_result) {
-                                Ok(info) => {
-                                    node_info.set(info.clone());
-                                    info!("Connected to node: {}", info.url);
-                                }
-                                Err(e) => {
-                                    error!("get_node_info failed: {:?}", e);
-                                    node_info.set(NodeInfo { url: "Unknown node".to_string() });
-                                    wallet_status.set("Failed to fetch node info".to_string());
-                                    clear_status_after_delay(wallet_status.clone(), 5000);
+            if **created {
+                spawn_local(async move {
+                    info!("Checking node connection status after wallet open");
+                    let conn_result = invoke("is_node_connected", JsValue::NULL).await;
+                    match serde_wasm_bindgen::from_value::<bool>(conn_result) {
+                        Ok(connected) => {
+                            node_connected.set(connected);
+                            info!("Node connection status: {}", connected);
+                            if !connected {
+                                wallet_status.set("Warning: Not connected to Vecno node".to_string());
+                                node_info.set(NodeInfo { url: "Not connected".to_string() });
+                                clear_status_after_delay(wallet_status.clone(), 5000);
+                            } else {
+                                let info_result = invoke("get_node_info", JsValue::NULL).await;
+                                match serde_wasm_bindgen::from_value::<NodeInfo>(info_result) {
+                                    Ok(info) => {
+                                        node_info.set(info.clone());
+                                        info!("Connected to node: {}", info.url);
+                                    }
+                                    Err(e) => {
+                                        error!("get_node_info failed: {:?}", e);
+                                        node_info.set(NodeInfo { url: "Unknown node".to_string() });
+                                        wallet_status.set("Failed to fetch node info".to_string());
+                                        clear_status_after_delay(wallet_status.clone(), 5000);
+                                    }
                                 }
                             }
                         }
+                        Err(e) => {
+                            error!("is_node_connected failed: {:?}", e);
+                            node_connected.set(false);
+                            node_info.set(NodeInfo { url: "Not connected".to_string() });
+                            wallet_status.set("Failed to check node connection".to_string());
+                            clear_status_after_delay(wallet_status.clone(), 5000);
+                        }
                     }
-                    Err(e) => {
-                        error!("is_node_connected failed: {:?}", e);
-                        node_connected.set(false);
-                        node_info.set(NodeInfo { url: "Not connected".to_string() });
-                        wallet_status.set("Failed to check node connection".to_string());
-                        clear_status_after_delay(wallet_status, 5000);
-                    }
-                }
-                is_loading.set(false);
-            });
+                });
+            } else {
+                // Explicitly set disconnected when wallet is closed
+                node_connected.set(false);
+                node_info.set(NodeInfo { url: "".to_string() });
+            }
             || {}
         });
     }
@@ -525,9 +527,40 @@ pub fn app() -> Html {
     let navigate_to_intro = {
         let screen = screen.clone();
         let wallet_created = wallet_created.clone();
+        let node_connected = node_connected.clone();
+        let node_info = node_info.clone();
+        let is_loading = is_loading.clone();
+        let wallet_status = wallet_status.clone();
         Callback::from(move |_: MouseEvent| {
+            // Navigate immediately for UX, close in background
             screen.set(Screen::Intro);
             wallet_created.set(false);
+            // Immediately set disconnected for UI feedback
+            node_connected.set(false);
+            node_info.set(NodeInfo { url: "".to_string() });
+
+            let is_loading = is_loading.clone();
+            let wallet_status = wallet_status.clone();
+            spawn_local(async move {
+                is_loading.set(true);
+                let result = invoke("close_wallet", JsValue::NULL).await;
+                match result.as_string() {
+                    Some(msg) if msg.contains("success") => {
+                        info!("Wallet closed successfully");
+                    }
+                    Some(msg) => {
+                        error!("Failed to close wallet: {}", msg);
+                        wallet_status.set(format!("Warning: Failed to close wallet - {}", msg));
+                        clear_status_after_delay(wallet_status, 5000);
+                    }
+                    None => {
+                        error!("Unexpected response from close_wallet");
+                        wallet_status.set("Warning: Unexpected error closing wallet".to_string());
+                        clear_status_after_delay(wallet_status, 5000);
+                    }
+                }
+                is_loading.set(false);
+            });
         })
     };
 
@@ -1006,7 +1039,7 @@ pub fn app() -> Html {
                             </button>
                         </form>
                         <p class="status" aria-live="assertive">{ &*wallet_status }</p>
-                        <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Go back to main menu">{"Go Back to Menu"}</button><br /><br />
+                        <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Logout">{"Logout"}</button><br /><br />
                         <p>{"Have a mnemonic? "}<a href="#" onclick={proceed_to_import} aria-label="Import a wallet using mnemonic">{"Import Wallet"}</a></p>
                     </main>
                 },
@@ -1049,7 +1082,7 @@ pub fn app() -> Html {
                             </button>
                         </form>
                         <p class="status" aria-live="assertive">{ &*wallet_status }</p>
-                        <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Go back to main menu">{"Go Back to Menu"}</button><br /><br />
+                        <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Logout">{"Logout"}</button><br /><br />
                         <p>{"Want to create a new wallet? "}<a href="#" onclick={proceed_to_create} aria-label="Create a new wallet">{"Create New Wallet"}</a></p>
                     </main>
                 },
@@ -1089,9 +1122,9 @@ pub fn app() -> Html {
                                 <button
                                     onclick={navigate_to_intro.clone()}
                                     class="btn btn-secondary"
-                                    aria-label="Go back to main menu"
+                                    aria-label="Logout"
                                 >
-                                    {"Go Back to Menu"}
+                                    {"Logout"}
                                 </button>
                             </div>
                             <p class="status" aria-live="assertive">{ &*wallet_status }</p>
@@ -1133,7 +1166,7 @@ pub fn app() -> Html {
                         </div>
                         <div class="row">
                             <button onclick={navigate_to_transactions} class="btn btn-primary" aria-label="View transaction history">{"View Transactions"}</button>
-                            <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Go back to main menu">{"Go Back to Menu"}</button>
+                            <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Logout">{"Logout"}</button>
                         </div>
                     </main>
                 },
@@ -1185,7 +1218,7 @@ pub fn app() -> Html {
                         <p class="status" aria-live="assertive">{ &*transaction_status }</p>
                         <div class="row">
                             <button onclick={navigate_to_main} class="btn btn-secondary" aria-label="Back to wallet dashboard">{"Back to Wallet"}</button>
-                            <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Go back to main menu">{"Go Back to Menu"}</button>
+                            <button onclick={navigate_to_intro.clone()} class="btn btn-secondary" aria-label="Logout">{"Logout"}</button>
                         </div>
                         <h3>{"Recent Transactions"}</h3>
                         { if transactions.is_empty() && *is_loading {
