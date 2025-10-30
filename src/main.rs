@@ -1,5 +1,8 @@
 mod app;
-
+mod components;
+pub mod services;
+pub mod models;
+pub mod utils;
 use app::App;
 
 fn main() {

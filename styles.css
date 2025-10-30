@@ -716,3 +716,249 @@ a:hover {
   color: var(--text-dark); /* Ensure text is readable */
   padding: 0.5rem; /* Improve option spacing */
 }
+
+/* Add to your existing styles.css */
+.transaction-result {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    margin: 1.5rem 0;
+    font-size: 0.95rem;
+}
+
+.txid-box {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.txid-text {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    flex: 1;
+    min-width: 200px;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+.btn-copy {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    background: var(--secondary-color);
+}
+
+.transaction-item {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1.25rem;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+}
+
+.info-text {
+    color: var(--text-muted);
+    font-style: italic;
+    margin: 1rem 0;
+    text-align: center;
+}
+
+/* === Enhanced Transaction List === */
+.transaction-list-vertical {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.02);
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.transaction-item-vertical {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s ease;
+}
+
+.transaction-item-vertical:last-child {
+    border-bottom: none;
+}
+
+.transaction-item-vertical:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tx-direction {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-bottom: 0.25rem;
+    background: var(--border-color);
+}
+
+.icon.incoming {
+    background: linear-gradient(45deg, #10b981, #34d399);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.icon.outgoing {
+    background: linear-gradient(45deg, #ef4444, #f87171);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.tx-details {
+    flex: 1;
+    font-size: 0.9rem;
+}
+
+.tx-address {
+    margin: 0 0 0.25rem;
+    word-break: break-all;
+}
+
+.tx-address code {
+    font-size: 0.8rem;
+    color: var(--primary-color);
+}
+
+.tx-amount {
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 0.25rem 0;
+}
+
+.amount-in { color: #34d399; }
+.amount-out { color: #f87171; }
+
+.tx-time {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin: 0.25rem 0;
+}
+
+.tx-id {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.tx-id code {
+    font-family: 'JetBrains Mono', monospace;
+    word-break: break-all;
+}
+
+.section-title {
+    margin: 2rem 0 1rem;
+    font-size: 1.4rem;
+    color: var(--text-dark);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+/* === Compact Two-Column Transaction Grid === */
+.tx-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.02);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.tx-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tx-card {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    transition: background 0.2s ease;
+}
+
+.tx-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.tx-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-muted);
+}
+
+.tx-header strong {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.icon.incoming {
+    background: linear-gradient(45deg, #10b981, #34d399);
+}
+
+.icon.outgoing {
+    background: linear-gradient(45deg, #ef4444, #f87171);
+}
+
+.tx-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.tx-amt {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.amount-in { color: #34d399; }
+.amount-out { color: #f87171; }
+
+.tx-time {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    margin: 0.1rem 0 0;
+}
+
+.section-title {
+    margin: 1.5rem 0 0.75rem;
+    font-size: 1.25rem;
+    color: var(--text-dark);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.4rem;
+}

@@ -15,10 +15,8 @@
       {
         "title": "Vecno Wallet",
         "width": 1200,
-        "height": 800,
-        "resizable": false,
-        "minWidth": 1200,
-        "minHeight": 800
+        "height": 1000,
+        "resizable": false
       }
     ],
     "security": {
