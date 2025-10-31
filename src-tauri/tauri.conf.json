@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "vecno-wallet",
   "version": "0.1.0",
-  "identifier": "com.yoshiki.vecno-wallet",
+  "identifier": "com.vecno.wallet",
   "build": {
     "beforeDevCommand": "trunk serve",
     "devUrl": "http://localhost:1420",
@@ -17,6 +17,7 @@
         "width": 1200,
         "height": 1000,
         "resizable": false
+
       }
     ],
     "security": {

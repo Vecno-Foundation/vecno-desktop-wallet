@@ -11,11 +11,37 @@ use tauri::async_runtime::Mutex;
 use vecno_wrpc_client::prelude::Resolver;
 use vecno_wallet_core::settings::ensure_application_folder;
 
+#[cfg(windows)]
+extern "C" {
+    fn AttachConsole(dwProcessId: u32) -> i32;
+    fn FreeConsole();
+}
+
+#[cfg(windows)]
+const ATTACH_PARENT_PROCESS: u32 = 0xFFFFFFFF;
+
 #[tokio::main]
 async fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    #[cfg(windows)]
+    {
+        unsafe {
+            FreeConsole();
+            let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    {
+        env_logger::Builder::from_env(
+            env_logger::Env::default().default_filter_or("debug"),
+        )
+        .init();
+    }
+
+    // Create app folder
     if let Err(e) = ensure_application_folder().await {
         eprintln!("Failed to create application folder: {}", e);
+        std::process::exit(1);
     }
 
     let resolver = Resolver::default();
@@ -25,7 +51,7 @@ async fn main() {
             wallet: Mutex::new(None),
             resolver: Mutex::new(Some(resolver)),
             wallet_secret: Mutex::new(None),
-            mnemonic: Mutex::new(None),  
+            mnemonic: Mutex::new(None),
             node_cache: Mutex::new(NodeCache::default()),
         })
         .invoke_handler(tauri::generate_handler![

@@ -1125,7 +1125,7 @@ pub fn app() -> Html {
                             { if !last_txid.is_empty() {
                                 html! {
                                     <div class="transaction-result" aria-label="Last transaction">
-                                        <p><strong>{"Last TXID:"}</strong></p>
+                                        <p><strong>{"Last sent transaction:"}</strong></p>
                                         <div class="txid-box">
                                             <code class="txid-text">{ &*last_txid }</code>
                                             <button onclick={copy_txid} class="btn btn-sm btn-copy" aria-label="Copy TXID">{"Copy"}</button>

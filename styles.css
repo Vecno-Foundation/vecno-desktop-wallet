@@ -145,11 +145,11 @@ h3 {
 
 /* Logo */
 .logo.vecno {
-  max-width: 800px; /* Smaller logo for cleaner look */
+  max-width: 800px;
   height: auto;
   display: block;
   margin: 0 auto 1.5rem;
-  filter: brightness(1.2); /* Slightly brighter for dark theme */
+  filter: brightness(1.2);
 }
 
 /* Balance container */
