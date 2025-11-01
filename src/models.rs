@@ -61,9 +61,11 @@ pub struct NodeInfo {
 #[derive(Clone, PartialEq)]
 pub enum Screen {
     Intro,
+    Home,
     CreateWallet,
     ImportWallet,
     MnemonicDisplay(String),
-    Main,
+    Wallet,
     Transactions,
+    Send,
 }

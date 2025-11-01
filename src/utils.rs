@@ -12,10 +12,10 @@ pub fn is_valid_password(secret: &str) -> bool {
 
 pub fn format_balance(balance: u64) -> String {
     if balance == 0 {
-        "Balance: 0 VE".to_string()
+        "0 VE".to_string()
     } else {
         let ve = balance as f64 / 100_000_000.0;
-        format!("Balance: {:.8} VE", ve)
+        format!("{:.8} VE", ve)
     }
 }
 

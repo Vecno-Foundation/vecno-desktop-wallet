@@ -8,6 +8,7 @@ mod node;
 
 use state::{AppState, NodeCache};
 use tauri::async_runtime::Mutex;
+use tauri::Manager;
 use vecno_wrpc_client::prelude::Resolver;
 use vecno_wallet_core::settings::ensure_application_folder;
 
@@ -47,12 +48,17 @@ async fn main() {
     let resolver = Resolver::default();
 
     tauri::Builder::default()
-        .manage(AppState {
-            wallet: Mutex::new(None),
-            resolver: Mutex::new(Some(resolver)),
-            wallet_secret: Mutex::new(None),
-            mnemonic: Mutex::new(None),
-            node_cache: Mutex::new(NodeCache::default()),
+        .setup(move |app| {
+            // Now `app` is in scope!
+            app.manage(AppState {
+                wallet: Mutex::new(None),
+                resolver: Mutex::new(Some(resolver)),
+                wallet_secret: Mutex::new(None),
+                mnemonic: Mutex::new(None),
+                node_cache: Mutex::new(NodeCache::default()),
+                app_handle: app.handle().clone(),
+            });
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             checks::is_wallet_open,
