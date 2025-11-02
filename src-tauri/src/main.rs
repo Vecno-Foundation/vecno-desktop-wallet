@@ -49,7 +49,6 @@ async fn main() {
 
     tauri::Builder::default()
         .setup(move |app| {
-            // Now `app` is in scope!
             app.manage(AppState {
                 wallet: Mutex::new(None),
                 resolver: Mutex::new(Some(resolver)),

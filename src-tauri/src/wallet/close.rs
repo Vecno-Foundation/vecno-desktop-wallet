@@ -1,4 +1,3 @@
-// src/commands.rs or wherever your commands are
 use crate::state::{AppState, ErrorResponse, NodeCache};
 use tauri::{command, AppHandle, State, Manager};
 use log::{error, info};
@@ -30,7 +29,7 @@ pub async fn close_wallet(
                 error!("Failed to close wallet store: {}", e);
             }
         }
-    } // drop guard
+    }
 
     // === Clear App State ===
     let mut wallet_state = state.wallet.lock().await;
@@ -47,7 +46,6 @@ pub async fn close_wallet(
 
     info!("Wallet closed. Requesting graceful shutdown...");
 
-    // === CORRECT METHOD: get_webview_window ===
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.close();
     } else {

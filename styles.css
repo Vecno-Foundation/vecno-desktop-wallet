@@ -1,4 +1,3 @@
-
 * {
   margin: 0;
   padding: 0;
@@ -220,6 +219,162 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+}
+
+/* Perfect vertical + horizontal centering for Home screen */
+.home-centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+}
+
+.home-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  max-width: 640px;
+  width: 100%;
+}
+
+.home-title {
+  font-size: 1.3rem;
+  color: var(--text-dark);
+  text-align: center;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.home-loading {
+  font-size: 1.1rem;
+  color: var(--accent-color);
+  margin: 0;
+}
+
+.open-wallet-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+}
+
+.home-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+}
+
+.home-import-link {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-dark);
+  text-align: center;
+}
+
+.home-import-link a {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+/* Center Create Wallet screen */
+.create-centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-lg);
+}
+
+.create-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-lg);
+    max-width: 640px;
+    width: 100%;
+}
+
+.create-title {
+    font-size: 1.3rem;
+    color: var(--text-dark);
+    text-align: center;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.create-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 100%;
+}
+
+.create-import-link {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-dark);
+    text-align: center;
+}
+
+.create-import-link a {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Center Import Wallet screen */
+.import-centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-lg);
+}
+
+.import-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-lg);
+    max-width: 640px;
+    width: 100%;
+}
+
+.import-title {
+    font-size: 1.3rem;
+    color: var(--text-dark);
+    text-align: center;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.import-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 100%;
+}
+
+.import-mnemonic-row {
+    width: 100%;
+    max-width: 600px;
+    margin: var(--spacing-md) 0;
+}
+
+.mnemonic-input {
+    width: 100%;
+}
+
+/* Responsive adjustment for small screens */
+@media (max-width: 480px) {
+    .import-mnemonic-row,
+    .create-form .row,
+    .import-form .row {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Screen reader only */
@@ -473,27 +628,74 @@ select {
 /* Mnemonic */
 .instruction-text {
   font-size: 1.1rem;
-  color: var(--text-muted);
+  color: var(--text-dark);
   margin-bottom: var(--spacing-lg);
   line-height: 1.6;
 }
+
+/* Mnemonic Display – Inline Copy */
+.mnemonic-container {
+    width: 100%;
+    max-width: 1000px;
+    margin: var(--spacing-lg) 0;
+}
+
 .mnemonic-box {
-  background: rgba(255,255,255,0.1);
-  border-radius: var(--border-radius);
-  padding: 1.75rem;
-  margin: var(--spacing-lg) 0;
-  max-height: 160px;
-  overflow-y: auto;
-  box-shadow: var(--shadow);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.1rem;
-  color: var(--text-dark);
-  border: 1px solid var(--border-color);
-  word-break: break-word;
-  line-height: 1.5;
-  max-width: 1000px;
-  width: 100%;
-  text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    background: rgba(255,255,255,0.1);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.mnemonic-text {
+    flex: 1;
+    min-width: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    word-break: break-word;
+    line-height: 1.6;
+    margin: 0;
+    text-align: left;
+}
+
+.btn-copy {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    background: var(--secondary-color);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+}
+
+.btn-copy:hover {
+    background: #4f46e5;
+    transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .mnemonic-box {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .mnemonic-text {
+        text-align: center;
+        padding-bottom: var(--spacing-sm);
+        border-bottom: 1px solid var(--border-color);
+    }
+    .btn-copy {
+        align-self: center;
+    }
 }
 
 /* Status & Info */
@@ -647,7 +849,7 @@ a:hover {
   border-radius: var(--border-radius);
   color: var(--text-dark);
   transition: all 0.25s ease;
-  text-align: center;
+  text-align: left;
 }
 #wallet-select:focus {
   outline: none;
@@ -658,7 +860,7 @@ a:hover {
   background: #334156;
   color: var(--text-dark);
   padding: 0.75rem;
-  text-align: center;
+  text-align: left;
 }
 
 .intro-screen {
@@ -722,9 +924,6 @@ a:hover {
   100% { filter: brightness(1.03) contrast(1.02) drop-shadow(0 0 10px rgba(255,255,255,.25)); }
 }
 
-/* -------------------------------------------------
-   4. APPLY ANIMATIONS
-   ------------------------------------------------- */
 .logo-intro {
   animation: 
     logoTiltIn     2s   cubic-bezier(0.22, 0.82, 0.35, 1) forwards,

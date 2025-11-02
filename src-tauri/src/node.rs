@@ -6,7 +6,6 @@ use log::{error, info};
 
 #[command]
 pub async fn is_node_connected(state: State<'_, AppState>) -> Result<bool, ErrorResponse> {
-    // 1. Fast-path: check the in-memory cache
     {
         let cache_guard = state.node_cache.lock().await;
         if cache_guard.url.is_some() {
@@ -15,7 +14,6 @@ pub async fn is_node_connected(state: State<'_, AppState>) -> Result<bool, Error
         }
     }
 
-    // 2. Cache miss – need to talk to the resolver
     let guard = state.resolver.lock().await;
     let resolver = guard.as_ref().ok_or_else(|| {
         let msg = "Resolver not initialized";
@@ -29,7 +27,6 @@ pub async fn is_node_connected(state: State<'_, AppState>) -> Result<bool, Error
     match resolver.get_url(WrpcEncoding::Borsh, network_id).await {
         Ok(url) => {
             info!("Successfully resolved node URL: {}", url);
-            // 3. Populate the cache for next calls
             {
                 let mut cache_guard = state.node_cache.lock().await;
                 cache_guard.url = Some(url.clone());
@@ -37,7 +34,6 @@ pub async fn is_node_connected(state: State<'_, AppState>) -> Result<bool, Error
             Ok(true)
         }
         Err(e) => {
-            // 4. On error clear the cache (so we retry next time)
             {
                 let mut cache_guard = state.node_cache.lock().await;
                 cache_guard.url = None;
@@ -77,7 +73,6 @@ pub async fn get_node_info(state: State<'_, AppState>) -> Result<NodeInfo, Error
     match resolver.get_url(WrpcEncoding::Borsh, network_id).await {
         Ok(url) => {
             info!("Retrieved node URL: {}", url);
-            // Store in cache for `is_node_connected`
             {
                 let mut cache_guard = state.node_cache.lock().await;
                 cache_guard.url = Some(url.clone());
@@ -85,7 +80,6 @@ pub async fn get_node_info(state: State<'_, AppState>) -> Result<NodeInfo, Error
             Ok(NodeInfo { url })
         }
         Err(e) => {
-            // Clear cache on failure
             {
                 let mut cache_guard = state.node_cache.lock().await;
                 cache_guard.url = None;

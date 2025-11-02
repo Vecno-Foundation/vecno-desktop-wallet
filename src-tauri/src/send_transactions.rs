@@ -16,9 +16,6 @@ use std::sync::Arc;
 use workflow_core::prelude::Abortable;
 use vecno_wallet_core::tx::generator::signer::Signer;
 
-/// ---------------------------------------------------------------------
-/// Helper: Get all mature UTXOs
-/// ---------------------------------------------------------------------
 async fn get_mature_utxos(ctx: &UtxoContext) -> Result<Vec<UtxoEntryReference>, ErrorResponse> {
     let entries = ctx
         .get_utxos(None, None)
@@ -28,9 +25,6 @@ async fn get_mature_utxos(ctx: &UtxoContext) -> Result<Vec<UtxoEntryReference>, 
     Ok(entries.into_iter().map(UtxoEntryReference::from).collect())
 }
 
-/// ---------------------------------------------------------------------
-/// Helper: Fetch current DAA score
-/// ---------------------------------------------------------------------
 async fn fetch_current_daa_score(rpc: &dyn RpcApi) -> Result<u64, ErrorResponse> {
     let info = rpc
         .get_server_info()

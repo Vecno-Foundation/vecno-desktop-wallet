@@ -22,7 +22,6 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
-tauri-sys = { git = "https://github.com/JonasKruckenberg/tauri-sys", branch = "main", features = ["tauri"] }
 
 # Serialization
 serde = { version = "1.0.190", features = ["derive", "rc"] }
@@ -35,9 +34,7 @@ vecno-wrpc-client = { git = "https://github.com/Yooshikii/testnet1.git", branch 
 vecno-rpc-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-consensus-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-addresses = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
-vecno-wallet-pskt = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-consensus-client = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
-vecno-bip32 = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 
 # Asynchronous runtime
 tokio = { version = "1", features = ["full"] }

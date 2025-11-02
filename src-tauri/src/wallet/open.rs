@@ -18,9 +18,7 @@ pub async fn open_wallet(
     secret: String,
     state: State<'_, AppState>,
 ) -> Result<String, ErrorResponse> {
-    // -------------------------------------------------
-    // 1. Basic validation
-    // -------------------------------------------------
+
     if filename.is_empty() {
         error!("Wallet filename is empty");
         return Err(ErrorResponse {
@@ -34,9 +32,6 @@ pub async fn open_wallet(
         });
     }
 
-    // -------------------------------------------------
-    // 2. Resolve storage path
-    // -------------------------------------------------
     let _wallet_dir = application_folder().map_err(|e| {
         error!("Failed to get application folder: {}", e);
         ErrorResponse { error: e.to_string() }
@@ -60,9 +55,6 @@ pub async fn open_wallet(
         })?
         .to_string();
 
-    // -------------------------------------------------
-    // 3. Open local store
-    // -------------------------------------------------
     let store = Wallet::local_store().map_err(|e| {
         error!("Local store creation failed: {}", e);
         ErrorResponse { error: e.to_string() }
@@ -93,9 +85,6 @@ pub async fn open_wallet(
         }
     }
 
-    // -------------------------------------------------
-    // 4. Build Wallet + wRPC connection
-    // -------------------------------------------------
     let network_id = NetworkId::new(NetworkType::Mainnet);
     let resolver = Resolver::default();
 
@@ -148,9 +137,6 @@ pub async fn open_wallet(
         });
     }
 
-    // -------------------------------------------------
-    // 5. Load PrvKeyData → extract mnemonic (if any)
-    // -------------------------------------------------
     let mut key_data_id: Option<PrvKeyDataId> = None;
     let mut keys = wallet.store().as_prv_key_data_store()?.iter().await?;
     while let Some(key_info) = keys.try_next().await? {
@@ -176,7 +162,6 @@ pub async fn open_wallet(
                 }
             })?;
 
-        // Decrypt the payload (Encryptable<T> → T)
         let payload = encrypted_key_data
             .unwrap().payload
             .decrypt(Some(&wallet_secret))
@@ -187,12 +172,10 @@ pub async fn open_wallet(
                 }
             })?;
 
-        // Public accessor → Zeroizing<PrvKeyDataVariant>
         let variant = payload.as_variant();
 
         match *variant {
             PrvKeyDataVariant::Mnemonic(ref mnemonic_str) => {
-                // Remove possible null-padding and whitespace
                 Some(mnemonic_str.trim_end_matches('\0').trim().to_owned())
             }
             _ => None,
@@ -203,9 +186,6 @@ pub async fn open_wallet(
         });
     };
 
-    // -------------------------------------------------
-    // 6. Load & select the first account
-    // -------------------------------------------------
     let mut account_id: Option<AccountId> = None;
     let mut accounts = wallet.store().as_account_store()?.iter(None).await?;
     while let Some((account_storage, _)) = accounts.try_next().await? {
@@ -236,9 +216,6 @@ pub async fn open_wallet(
         }
     })?;
 
-    // -------------------------------------------------
-    // 7. Store everything into AppState
-    // -------------------------------------------------
     {
         let mut wallet_state = state.wallet.lock().await;
         let mut resolver_state = state.resolver.lock().await;
