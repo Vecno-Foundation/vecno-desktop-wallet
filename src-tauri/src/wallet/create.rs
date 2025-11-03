@@ -131,7 +131,6 @@ pub async fn create_wallet(secret: String, filename: String, state: State<'_, Ap
         ErrorResponse { error: e.to_string() }
     })?;
 
-    // FIXED: Only call try_store ONCE
     wallet_storage.try_store(&storage).await.map_err(|e| {
         error!("Wallet storage failed: {}", e);
         ErrorResponse { error: e.to_string() }

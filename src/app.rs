@@ -105,6 +105,10 @@ pub fn app() -> Html {
     let transactions = use_state(|| Vec::<Transaction>::new());
     let last_txid = use_state(|| String::new());
 
+    let selected_tx = use_state(|| Option::<Transaction>::None);
+    let show_modal = use_state(|| false);
+    let last_sent = use_state(|| Option::<SentTxInfo>::None);
+
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
     // ---- effects -------------------------------------------------
@@ -496,6 +500,7 @@ pub fn app() -> Html {
         })
     };
 
+    // FIXED: send_transaction – clone `res` before moving it
     let send_transaction = {
         let l = is_loading.clone();
         let txs = transactions.clone();
@@ -504,12 +509,12 @@ pub fn app() -> Html {
         let last = last_txid.clone();
         let wc = wallet_created.clone();
         let pt = push_toast.clone();
+        let last_sent = last_sent.clone();
         Callback::from(move |(to_addr, amount_veni): (String, u64)| {
             if to_addr.is_empty() {
                 pt.emit(("Recipient address is required".into(), ToastKind::Error));
                 return;
             }
-
             if amount_veni == 0 {
                 pt.emit(("Amount must be greater than 0".into(), ToastKind::Error));
                 return;
@@ -525,6 +530,8 @@ pub fn app() -> Html {
             let bal = bal.clone();
             let last = last.clone();
             let pt = pt.clone();
+            let last_sent = last_sent.clone();
+
             spawn_local(async move {
                 l.set(true);
                 let args = serde_wasm_bindgen::to_value(&SendTransactionArgs {
@@ -541,24 +548,38 @@ pub fn app() -> Html {
                     }
                 };
 
-                let msg = get_error_message(res.clone());
+                let res_clone = res.clone();
 
-                if let Some(txid) = res.as_string() {
-                    last.set(txid.clone());
+                if let Ok(sent) = serde_wasm_bindgen::from_value::<SentTxInfo>(res) {
+                    last.set(sent.txid.clone());
+                    last_sent.set(Some(sent.clone()));
                     pt.emit(("Transaction sent!".into(), ToastKind::Success));
 
-                } else if msg.contains("Invalid address") || msg.contains("checksum") || msg.contains("payload") {
-                    pt.emit((msg, ToastKind::Error));
+                    // Optimistic update
+                    let mut current = (*txs).clone();
+                    let optimistic = Transaction {
+                        txid: sent.txid.clone(),
+                        to_address: sent.to_address.clone(),
+                        amount: sent.amount,
+                        timestamp: sent.timestamp.clone(),
+                    };
+                    current.insert(0, optimistic);
+                    txs.set(current);
                 } else {
+                    let msg = get_error_message(res_clone);
                     pt.emit((msg, ToastKind::Error));
                 }
-                    let list_res = invoke("list_transactions", JsValue::NULL).await;
-                    if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(list_res) {
-                        txs.set(list);
-                    }
-                    if !(*addrs).is_empty() {
-                        fetch_balance(addrs.clone(), bal.clone(), l.clone(), pt.clone()).await;
-                    }
+
+                let list_res = invoke("list_transactions", JsValue::NULL).await;
+                if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(list_res) {
+                    txs.set(list);
+                }
+
+                // Refresh balance
+                if !(*addrs).is_empty() {
+                    fetch_balance(addrs.clone(), bal.clone(), l.clone(), pt.clone()).await;
+                }
+                l.set(false);
             });
         })
     };
@@ -595,7 +616,19 @@ pub fn app() -> Html {
         })
     };
 
-    // ---- render -------------------------------------------------
+    let open_modal = {
+        let selected = selected_tx.clone();
+        let show = show_modal.clone();
+        Callback::from(move |tx: Transaction| {
+            selected.set(Some(tx));
+            show.set(true);
+        })
+    };
+    let close_modal = {
+        let show = show_modal.clone();
+        Callback::from(move |_| show.set(false))
+    };
+
     html! {
         <div class="app-container">
             { toast_html }
@@ -684,7 +717,8 @@ pub fn app() -> Html {
                                     transactions={(*transactions).clone()}
                                     balance={(*balance).clone()}
                                     is_loading={*is_loading}
-                                    our_receive_address={recv}
+                                    our_receive_address={recv.clone()}
+                                    on_tx_click={open_modal.clone()}
                                 />
                             }
                         },
@@ -692,7 +726,7 @@ pub fn app() -> Html {
                             <Send
                                 on_send={send_transaction}
                                 transaction_status={(*transaction_status).clone()}
-                                last_txid={(*last_txid).clone()}
+                                last_sent={(*last_sent).clone()}
                                 balance={(*balance).clone()}
                                 is_loading={*is_loading}
                                 wallet_created={*wallet_created}
@@ -700,6 +734,19 @@ pub fn app() -> Html {
                             />
                         },
                     }}
+
+                    { if *show_modal {
+                        if let Some(ref tx) = *selected_tx {
+                            let recv = addresses.first().map(|a| a.receive_address.clone()).unwrap_or_default();
+                            html! {
+                                <TxDetailModal
+                                    tx={tx.clone()}
+                                    our_address={recv}
+                                    on_close={close_modal}
+                                />
+                            }
+                        } else { html!{} }
+                    } else { html!{} }}
                 </main>
             </div>
         </div>

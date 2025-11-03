@@ -7,6 +7,7 @@ pub mod dashboard;
 pub mod transactions;
 pub mod send;
 pub mod toast;
+pub mod tx_detail_modal;
 
 pub use intro::Intro;
 pub use home::Home;
@@ -16,3 +17,4 @@ pub use mnemonic_display::MnemonicDisplay;
 pub use dashboard::Dashboard;
 pub use transactions::Transactions;
 pub use send::Send;
+pub use tx_detail_modal::TxDetailModal;

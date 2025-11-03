@@ -15,6 +15,7 @@ use vecno_wallet_core::derivation::AddressManager;
 use std::sync::Arc;
 use workflow_core::prelude::Abortable;
 use vecno_wallet_core::tx::generator::signer::Signer;
+use chrono::Utc;
 
 async fn get_mature_utxos(ctx: &UtxoContext) -> Result<Vec<UtxoEntryReference>, ErrorResponse> {
     let entries = ctx
@@ -34,12 +35,20 @@ async fn fetch_current_daa_score(rpc: &dyn RpcApi) -> Result<u64, ErrorResponse>
     Ok(info.virtual_daa_score)
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct SentTxInfo {
+    pub txid: String,
+    pub to_address: String,
+    pub amount: u64,
+    pub timestamp: String,
+}
+
 #[command]
 pub async fn send_transaction(
     to_address: String,
     amount: u64,
     state: State<'_, AppState>,
-) -> Result<String, ErrorResponse> {
+) -> Result<SentTxInfo, ErrorResponse> {
     let wallet_guard = state.wallet.lock().await;
     let wallet = wallet_guard
         .as_ref()
@@ -197,9 +206,21 @@ pub async fn send_transaction(
         tx_ids.push(rpc_id.to_string());
     }
 
-    // Only return the LAST transaction ID
+    // Only return the LAST transaction ID + extra info
     let last_tx_id = tx_ids.last().cloned().unwrap_or_default();
-    log::info!("Successfully submitted {} transaction(s). Last TXID: {}", tx_ids.len(), last_tx_id);
 
-    Ok(last_tx_id)
+    let sent = SentTxInfo {
+        txid: last_tx_id,
+        to_address,
+        amount,
+        timestamp: Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+    };
+
+    log::info!(
+        "Successfully submitted {} transaction(s). Last TXID: {}",
+        tx_ids.len(),
+        sent.txid
+    );
+
+    Ok(sent)
 }

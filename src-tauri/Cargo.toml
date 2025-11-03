@@ -12,13 +12,11 @@ path = "src/main.rs"
 [package.metadata.windows]
 subsystem = "windows"
 
-# Build dependencies
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
-# Runtime dependencies
 [dependencies]
-# Tauri and related plugins
+# Tauri
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
@@ -28,7 +26,7 @@ serde = { version = "1.0.190", features = ["derive", "rc"] }
 serde_json = "1"
 serde-wasm-bindgen = "0.6.1"
 
-# Vecno project dependencies
+# Vecno crates (native)
 vecno-wallet-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-wrpc-client = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-rpc-core = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
@@ -36,32 +34,24 @@ vecno-consensus-core = { git = "https://github.com/Yooshikii/testnet1.git", bran
 vecno-addresses = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 vecno-consensus-client = { git = "https://github.com/Yooshikii/testnet1.git", branch = "main" }
 
-# Asynchronous runtime
+# Async runtime (native only)
 tokio = { version = "1", features = ["full"] }
 async-std = "1.12"
 futures-lite = "2.6.1"
 futures-util = "0.3.31"
-chrono = "0.4.42"
 
-# Web and WASM
-yew = { version = "0.21", features = ["csr"] }
-wasm-bindgen = { version = "0.2.100", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.43"
-web-sys = { version = "0.3.70", features = ["console"] }
-js-sys = "0.3.70"
+# Time
+chrono = { version = "0.4.42", features = ["serde"] }
 
-# Logging and debugging
+# Logging
 log = "0.4"
 env_logger = "0.11.8"
-wasm-logger = "0.2"
 console_error_panic_hook = "0.1.7"
-winnow = "0.7.13"
 
-# Workflow and RPC
+# Misc
+winnow = "0.7.13"
 workflow-core = "0.18.0"
 workflow-rpc = { version = "0.18.0", default-features = false, features = ["rustls-tls-webpki-roots"] }
 borsh = { version = "1.5.7", features = ["rc"] }
-
-# Cryptography and utilities
-bip39 = { version = "2.2", features = [] }
+bip39 = "2.2"
 rand = "0.8"

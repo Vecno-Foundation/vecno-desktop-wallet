@@ -60,6 +60,7 @@ async fn main() {
             });
             Ok(())
         })
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             checks::is_wallet_open,
             node::is_node_connected,
