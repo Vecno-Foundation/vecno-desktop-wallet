@@ -38,8 +38,6 @@ pub fn use_toast() -> (
     Html,
 ) {
     let toast = use_state(|| None::<(String, ToastKind)>);
-
-    // Auto-clear after 8 seconds
     {
         let toast = toast.clone();
         use_effect_with(toast.clone(), move |t| {
@@ -52,13 +50,11 @@ pub fn use_toast() -> (
         });
     }
 
-    // Clear callback – emits () (no event)
     let clear_toast = {
         let toast = toast.clone();
         Callback::from(move |_| toast.set(None))
     };
 
-    // Push toast – logs to console
     let push_toast = {
         let toast = toast.clone();
         Callback::from(move |(msg, kind)| {
@@ -67,10 +63,8 @@ pub fn use_toast() -> (
         })
     };
 
-    // Overlay click – clears toast
     let overlay_click = clear_toast.clone();
 
-    // Render toast HTML
     let render_toast = {
         let toast = toast.clone();
         let clear = clear_toast.clone();

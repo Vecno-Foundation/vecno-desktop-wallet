@@ -110,7 +110,6 @@ pub async fn verify_wallet_password(
 ) -> Result<(), ErrorResponse> {
     info!("verify_wallet_password invoked for: {}", filename);
 
-    // Validate inputs
     if filename.is_empty() {
         return Err(ErrorResponse {
             error: "Wallet filename is required".into(),
@@ -124,14 +123,12 @@ pub async fn verify_wallet_password(
 
     let storage_path = Path::new(&filename);
 
-    // Check file existence
     if !storage_path.exists() {
         return Err(ErrorResponse {
             error: "Wallet file does not exist".into(),
         });
     }
 
-    // Validate path encoding
     let path_str = storage_path.to_str().ok_or_else(|| ErrorResponse {
         error: "Invalid path encoding".into(),
     })?;
@@ -140,7 +137,6 @@ pub async fn verify_wallet_password(
 
     info!("Loading wallet storage for password verification...");
 
-    // Initialize storage
     let store = Storage::try_new(path_str).map_err(|e| {
         error!("Storage initialization failed: {}", e);
         ErrorResponse {
@@ -148,7 +144,6 @@ pub async fn verify_wallet_password(
         }
     })?;
 
-    // Load wallet metadata
     let wallet_storage = WalletStorage::try_load(&store).await.map_err(|e| {
         error!("Failed to load wallet file: {}", e);
         ErrorResponse {
@@ -156,7 +151,6 @@ pub async fn verify_wallet_password(
         }
     })?;
 
-    // Verify password
     if wallet_storage.payload(&wallet_secret).is_err() {
         info!("Password verification failed: incorrect password");
         return Err(ErrorResponse {

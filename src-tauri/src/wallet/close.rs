@@ -9,7 +9,6 @@ pub async fn close_wallet(
 ) -> Result<(), ErrorResponse> {
     info!("Closing wallet and exiting app");
 
-    // === Wallet Cleanup ===
     {
         let wallet_guard = state.wallet.lock().await;
         if let Some(wallet) = wallet_guard.as_ref() {
@@ -31,7 +30,6 @@ pub async fn close_wallet(
         }
     }
 
-    // === Clear App State ===
     let mut wallet_state = state.wallet.lock().await;
     *wallet_state = None;
 

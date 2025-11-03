@@ -1,4 +1,5 @@
 use crate::components::*;
+use crate::components::receive::Receive;
 use crate::components::toast::*;
 use crate::models::*;
 use crate::utils::*;
@@ -30,16 +31,13 @@ async fn fetch_balance(
     let args = serde_wasm_bindgen::to_value(&GetBalanceArgs { address: address.clone() })
         .unwrap_or(JsValue::NULL);
     let result = invoke("get_balance", args.clone()).await;
-
     let msg = get_error_message(result.clone());
-
     if msg.contains("error") || msg.contains("Error") || msg.contains("failed") || msg.contains("Failed") {
         push_toast.emit((msg, ToastKind::Error));
         balance.set("Balance: unavailable".into());
         is_loading.set(false);
         return;
     }
-
     if let Some(balance_str) = result.as_string() {
         debug!("Parsed balance response for {}: {}", address, balance_str);
         match balance_str.parse::<u64>() {
@@ -58,7 +56,6 @@ async fn fetch_balance(
             }
         }
     }
-
     push_toast.emit((msg, ToastKind::Error));
     balance.set("Balance: unavailable".into());
     is_loading.set(false);
@@ -69,7 +66,6 @@ pub fn app() -> Html {
     let screen = use_state(|| Screen::Intro);
     let intro_done = use_state(|| false);
 
-    // Intro auto-advance
     {
         let screen = screen.clone();
         let intro_done = intro_done.clone();
@@ -88,12 +84,7 @@ pub fn app() -> Html {
         });
     }
 
-    // ----- TOAST HOOK -------------------------------------------------
     let (_toast_state, push_toast, _clear_toast, toast_html) = use_toast();
-    // ------------------------------------------------------------------
-
-    // Shared state
-    let wallet_status = use_state(String::new);
     let wallet_created = use_state(|| false);
     let addresses = use_state(|| Vec::<WalletAddress>::new());
     let balance = use_state(|| String::new());
@@ -104,14 +95,13 @@ pub fn app() -> Html {
     let node_info = use_state(|| NodeInfo { url: String::new() });
     let transactions = use_state(|| Vec::<Transaction>::new());
     let last_txid = use_state(|| String::new());
-
     let selected_tx = use_state(|| Option::<Transaction>::None);
     let show_modal = use_state(|| false);
     let last_sent = use_state(|| Option::<SentTxInfo>::None);
+    let sent_transactions = use_state(|| Vec::<SentTxInfo>::new());
 
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-    // ---- effects -------------------------------------------------
     {
         let last_txid = last_txid.clone();
         let screen = screen.clone();
@@ -135,7 +125,6 @@ pub fn app() -> Html {
                 spawn_local(async move {
                     let conn = invoke("is_node_connected", JsValue::NULL).await;
                     let msg = get_error_message(conn.clone());
-
                     if msg.contains("true") {
                         node_connected.set(true);
                         let info_res = invoke("get_node_info", JsValue::NULL).await;
@@ -194,7 +183,7 @@ pub fn app() -> Html {
         let is_loading = is_loading.clone();
         let push_toast = push_toast.clone();
         use_effect_with((screen.clone(), wallet_created.clone()), move |(s, created)| {
-            if **created && matches!(**s, Screen::Wallet | Screen::Send | Screen::Transactions) {
+            if **created && matches!(**s, Screen::Wallet | Screen::Receive | Screen::Send | Screen::Transactions) {
                 let addr = addresses.clone();
                 let loading = is_loading.clone();
                 let push_toast = push_toast.clone();
@@ -273,17 +262,20 @@ pub fn app() -> Html {
         });
     }
 
-    // ---- navigation callbacks ------------------------------------
     let set_screen = |s: Screen| {
         let scr = screen.clone();
         Callback::from(move |_| scr.set(s.clone()))
     };
-
     let to_home = set_screen(Screen::Home);
     let to_wallet = {
         let scr = screen.clone();
         let wc = wallet_created.clone();
         Callback::from(move |_| if *wc { scr.set(Screen::Wallet) })
+    };
+    let to_receive = {
+        let scr = screen.clone();
+        let wc = wallet_created.clone();
+        Callback::from(move |_| if *wc { scr.set(Screen::Receive) })
     };
     let to_transactions = {
         let scr = screen.clone();
@@ -295,7 +287,6 @@ pub fn app() -> Html {
         let wc = wallet_created.clone();
         Callback::from(move |_| if *wc { scr.set(Screen::Send) })
     };
-
     let navigate_to_intro = {
         let scr = screen.clone();
         let wc = wallet_created.clone();
@@ -316,7 +307,6 @@ pub fn app() -> Html {
         })
     };
 
-    // ---- wallet actions -----------------------------------------
     let open_wallet = {
         let wc = wallet_created.clone();
         let scr = screen.clone();
@@ -335,18 +325,15 @@ pub fn app() -> Html {
                 pt.emit(("Password must be at least 8 characters".into(), ToastKind::Error));
                 return;
             }
-
             let filename = filename.clone();
             let secret = secret.clone();
             let wc = wc.clone();
             let scr = scr.clone();
             let l = l.clone();
             let pt = pt.clone();
-
             spawn_local(async move {
                 l.set(true);
                 pt.emit(("Verifying password...".into(), ToastKind::Info));
-
                 match verify_password(&filename, &secret).await {
                     Ok(()) => {
                         info!("Password correct. Opening wallet...");
@@ -355,10 +342,8 @@ pub fn app() -> Html {
                             filename: filename.clone(),
                         })
                         .unwrap_or(JsValue::NULL);
-
                         let res = invoke("open_wallet", args).await;
                         let msg = get_error_message(res.clone());
-
                         if let Some(s) = res.as_string() {
                             if s.contains("Success") {
                                 pt.emit(("Wallet opened successfully!".into(), ToastKind::Success));
@@ -407,7 +392,6 @@ pub fn app() -> Html {
                 pt.emit(("Password must be at least 8 characters".into(), ToastKind::Error));
                 return;
             }
-
             let wc = wc.clone();
             let scr = scr.clone();
             let l = l.clone();
@@ -417,9 +401,7 @@ pub fn app() -> Html {
                 let args = serde_wasm_bindgen::to_value(&CreateWalletArgs { secret, filename })
                     .unwrap_or(JsValue::NULL);
                 let res = invoke("create_wallet", args).await;
-
                 let msg = get_error_message(res.clone());
-
                 if let Some(s) = res.as_string() {
                     if s.contains("Success") {
                         pt.emit(("Wallet created!".into(), ToastKind::Success));
@@ -471,7 +453,6 @@ pub fn app() -> Html {
                 pt.emit(("Filename contains invalid characters or is too long".into(), ToastKind::Error));
                 return;
             }
-
             let wc = wc.clone();
             let scr = scr.clone();
             let l = l.clone();
@@ -481,9 +462,7 @@ pub fn app() -> Html {
                 let args = serde_wasm_bindgen::to_value(&ImportWalletArgs { mnemonic, secret, filename })
                     .unwrap_or(JsValue::NULL);
                 let res = invoke("import_wallets", args).await;
-
                 let msg = get_error_message(res.clone());
-
                 if let Some(s) = res.as_string() {
                     if s.contains("Success") {
                         pt.emit(("Wallet imported!".into(), ToastKind::Success));
@@ -500,7 +479,6 @@ pub fn app() -> Html {
         })
     };
 
-    // FIXED: send_transaction – clone `res` before moving it
     let send_transaction = {
         let l = is_loading.clone();
         let txs = transactions.clone();
@@ -510,6 +488,7 @@ pub fn app() -> Html {
         let wc = wallet_created.clone();
         let pt = push_toast.clone();
         let last_sent = last_sent.clone();
+        let sent_transactions = sent_transactions.clone();
         Callback::from(move |(to_addr, amount_veni): (String, u64)| {
             if to_addr.is_empty() {
                 pt.emit(("Recipient address is required".into(), ToastKind::Error));
@@ -523,7 +502,6 @@ pub fn app() -> Html {
                 pt.emit(("No wallet open".into(), ToastKind::Error));
                 return;
             }
-
             let l = l.clone();
             let txs = txs.clone();
             let addrs = addrs.clone();
@@ -531,7 +509,7 @@ pub fn app() -> Html {
             let last = last.clone();
             let pt = pt.clone();
             let last_sent = last_sent.clone();
-
+            let sent_transactions = sent_transactions.clone();
             spawn_local(async move {
                 l.set(true);
                 let args = serde_wasm_bindgen::to_value(&SendTransactionArgs {
@@ -547,35 +525,36 @@ pub fn app() -> Html {
                         return;
                     }
                 };
-
                 let res_clone = res.clone();
-
                 if let Ok(sent) = serde_wasm_bindgen::from_value::<SentTxInfo>(res) {
                     last.set(sent.txid.clone());
                     last_sent.set(Some(sent.clone()));
                     pt.emit(("Transaction sent!".into(), ToastKind::Success));
 
-                    // Optimistic update
-                    let mut current = (*txs).clone();
+                    let mut current = (*sent_transactions).clone();
+                    current.insert(0, sent.clone());
+                    if current.len() > 2 {
+                        current.truncate(2);
+                    }
+                    sent_transactions.set(current);
+
+                    let mut current_txs = (*txs).clone();
                     let optimistic = Transaction {
                         txid: sent.txid.clone(),
                         to_address: sent.to_address.clone(),
                         amount: sent.amount,
                         timestamp: sent.timestamp.clone(),
                     };
-                    current.insert(0, optimistic);
-                    txs.set(current);
+                    current_txs.insert(0, optimistic);
+                    txs.set(current_txs);
                 } else {
                     let msg = get_error_message(res_clone);
                     pt.emit((msg, ToastKind::Error));
                 }
-
                 let list_res = invoke("list_transactions", JsValue::NULL).await;
                 if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(list_res) {
                     txs.set(list);
                 }
-
-                // Refresh balance
                 if !(*addrs).is_empty() {
                     fetch_balance(addrs.clone(), bal.clone(), l.clone(), pt.clone()).await;
                 }
@@ -601,21 +580,6 @@ pub fn app() -> Html {
         })
     };
 
-    let copy_txid = {
-        let pt = push_toast.clone();
-        let txid = last_txid.clone();
-        Callback::from(move |_| {
-            let txid = (*txid).clone();
-            let pt = pt.clone();
-            spawn_local(async move {
-                if let Some(nav) = web_sys::window().and_then(|w| Some(w.navigator())) {
-                    let _ = wasm_bindgen_futures::JsFuture::from(nav.clipboard().write_text(&txid)).await;
-                    pt.emit(("TXID copied!".into(), ToastKind::Success));
-                }
-            });
-        })
-    };
-
     let open_modal = {
         let selected = selected_tx.clone();
         let show = show_modal.clone();
@@ -624,6 +588,7 @@ pub fn app() -> Html {
             show.set(true);
         })
     };
+
     let close_modal = {
         let show = show_modal.clone();
         Callback::from(move |_| show.set(false))
@@ -632,15 +597,12 @@ pub fn app() -> Html {
     html! {
         <div class="app-container">
             { toast_html }
-
             <div class="node-status node-status-fixed" aria-live="polite">
                 <div class={classes!("node-indicator", if *node_connected { "connected" } else { "disconnected" })}></div>
                 <span class="node-status-text">{ if *node_connected { "Connected" } else { "Disconnected" } }</span>
                 <span class="node-tooltip">{ &node_info.url }</span>
             </div>
-
             <div class="app-title">{ format!("Vecno Wallet v{}", VERSION) }</div>
-
             <div class="layout">
                 <aside class="sidebar">
                     <nav class="nav">
@@ -656,6 +618,10 @@ pub fn app() -> Html {
                             <span aria-hidden="true"></span>
                             {"Transactions"}
                         </button>
+                        <button class={classes!("nav-item", if *screen == Screen::Receive { "active" } else { "" })} onclick={to_receive} disabled={!*wallet_created}>
+                            <span aria-hidden="true"></span>
+                            {"Receive"}
+                        </button>
                         <button class={classes!("nav-item", if *screen == Screen::Send { "active" } else { "" })} onclick={to_send} disabled={!*wallet_created}>
                             <span aria-hidden="true"></span>
                             {"Send"}
@@ -665,7 +631,6 @@ pub fn app() -> Html {
                         <button onclick={navigate_to_intro} class="exit-btn"><span aria-hidden="true"></span>{"Exit"}</button>
                     </div>
                 </aside>
-
                 <main class="main-content">
                     { match &*screen {
                         Screen::Intro => html! { <Intro /> },
@@ -673,7 +638,6 @@ pub fn app() -> Html {
                             <Home
                                 available_wallets={(*available_wallets).clone()}
                                 is_loading={*is_loading}
-                                wallet_status={(*wallet_status).clone()}
                                 on_open_wallet={open_wallet}
                                 on_create={set_screen(Screen::CreateWallet)}
                                 on_import={set_screen(Screen::ImportWallet)}
@@ -682,17 +646,17 @@ pub fn app() -> Html {
                         Screen::CreateWallet => html! {
                             <CreateWallet
                                 on_submit={create_wallet}
-                                wallet_status={(*wallet_status).clone()}
                                 is_loading={*is_loading}
                                 on_import={set_screen(Screen::ImportWallet)}
+                                push_toast={push_toast.clone()}
                             />
                         },
                         Screen::ImportWallet => html! {
                             <ImportWallet
                                 on_submit={import_wallets}
-                                wallet_status={(*wallet_status).clone()}
                                 is_loading={*is_loading}
                                 on_create={set_screen(Screen::CreateWallet)}
+                                push_toast={push_toast.clone()}
                             />
                         },
                         Screen::MnemonicDisplay(m) => html! {
@@ -700,13 +664,17 @@ pub fn app() -> Html {
                                 mnemonic={m.clone()}
                                 on_copy={copy_mnemonic.clone()}
                                 on_proceed={set_screen(Screen::Wallet)}
-                                wallet_status={(*wallet_status).clone()}
                             />
                         },
                         Screen::Wallet => html! {
                             <Dashboard
-                                addresses={(*addresses).clone()}
                                 balance={(*balance).clone()}
+                                is_loading={*is_loading}
+                            />
+                        },
+                        Screen::Receive => html! {
+                            <Receive
+                                addresses={(*addresses).clone()}
                                 is_loading={*is_loading}
                             />
                         },
@@ -722,19 +690,23 @@ pub fn app() -> Html {
                                 />
                             }
                         },
-                        Screen::Send => html! {
-                            <Send
-                                on_send={send_transaction}
-                                transaction_status={(*transaction_status).clone()}
-                                last_sent={(*last_sent).clone()}
-                                balance={(*balance).clone()}
-                                is_loading={*is_loading}
-                                wallet_created={*wallet_created}
-                                on_copy_txid={copy_txid}
-                            />
+                        Screen::Send => {
+                            let recv = addresses.first().map(|a| a.receive_address.clone()).unwrap_or_default();
+                            html! {
+                                <Send
+                                    on_send={send_transaction}
+                                    transaction_status={(*transaction_status).clone()}
+                                    last_sent={(*last_sent).clone()}
+                                    balance={(*balance).clone()}
+                                    is_loading={*is_loading}
+                                    wallet_created={*wallet_created}
+                                    sent_transactions={(*sent_transactions).clone()}
+                                    on_tx_click={open_modal.clone()}
+                                    our_receive_address={recv}
+                                />
+                            }
                         },
                     }}
-
                     { if *show_modal {
                         if let Some(ref tx) = *selected_tx {
                             let recv = addresses.first().map(|a| a.receive_address.clone()).unwrap_or_default();
@@ -759,7 +731,6 @@ pub fn run_app() {
     wasm_bindgen_futures::spawn_local(async {
         let window = web_sys::window().expect("no window");
         let document = window.document().expect("no document");
-
         let keydown = Closure::wrap(Box::new(move |e: web_sys::KeyboardEvent| {
             let key = e.key();
             if key == "F5" || key == "F11"
@@ -770,7 +741,6 @@ pub fn run_app() {
         }) as Box<dyn FnMut(_)>);
         document.add_event_listener_with_callback("keydown", keydown.as_ref().unchecked_ref()).unwrap();
         keydown.forget();
-
         let unload = Closure::wrap(Box::new(move |e: BeforeUnloadEvent| {
             e.prevent_default();
             e.set_return_value("");
@@ -778,6 +748,5 @@ pub fn run_app() {
         window.add_event_listener_with_callback("beforeunload", unload.as_ref().unchecked_ref()).unwrap();
         unload.forget();
     });
-
     yew::Renderer::<App>::new().render();
 }

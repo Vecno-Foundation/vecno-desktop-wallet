@@ -6,6 +6,7 @@ pub mod mnemonic_display;
 pub mod dashboard;
 pub mod transactions;
 pub mod send;
+pub mod receive;
 pub mod toast;
 pub mod tx_detail_modal;
 

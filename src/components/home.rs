@@ -5,7 +5,6 @@ use crate::models::WalletFile;
 pub struct HomeProps {
     pub available_wallets: Vec<WalletFile>,
     pub is_loading: bool,
-    pub wallet_status: String,
     pub on_open_wallet: Callback<(String, String)>,
     pub on_create: Callback<MouseEvent>,
     pub on_import: Callback<MouseEvent>,
@@ -70,10 +69,6 @@ pub fn home(props: &HomeProps) -> Html {
                             </button>
                         </form>
                     }
-                } else { html!{} }}
-
-                { if !props.wallet_status.is_empty() {
-                    html! { <p class="status">{ &props.wallet_status }</p> }
                 } else { html!{} }}
 
                 <div class="home-actions">

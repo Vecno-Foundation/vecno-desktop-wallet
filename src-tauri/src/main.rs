@@ -40,7 +40,6 @@ async fn main() {
         .init();
     }
 
-    // Create app folder
     if let Err(e) = ensure_application_folder().await {
         eprintln!("Failed to create application folder: {}", e);
         std::process::exit(1);
@@ -56,7 +55,6 @@ async fn main() {
                 wallet_secret: Mutex::new(None),
                 mnemonic: Mutex::new(None),
                 node_cache: Mutex::new(NodeCache::default()),
-                app_handle: app.handle().clone(),
             });
             Ok(())
         })

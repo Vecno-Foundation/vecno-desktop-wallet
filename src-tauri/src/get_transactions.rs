@@ -43,7 +43,6 @@ pub async fn list_transactions(state: State<'_, AppState>) -> Result<Vec<Transac
             error: format!("Failed to fetch UTXOs: {}", e),
         })?;
 
-    // Aggregate amounts per txid
     let mut tx_amounts: HashMap<TransactionId, u64> = HashMap::new();
     let mut tx_daa: HashMap<TransactionId, u64> = HashMap::new();
     let mut seen_txids: HashSet<TransactionId> = HashSet::new();
@@ -60,7 +59,6 @@ pub async fn list_transactions(state: State<'_, AppState>) -> Result<Vec<Transac
         *tx_amounts.entry(txid).or_insert(0) += entry.utxo_entry.amount;
     }
 
-    // Fetch timestamps for unique DAA scores
     let unique_daas: Vec<u64> = tx_daa.values().cloned().collect::<Vec<_>>();
     let timestamps = wallet
         .rpc_api()
@@ -74,7 +72,6 @@ pub async fn list_transactions(state: State<'_, AppState>) -> Result<Vec<Transac
         .zip(timestamps.into_iter())
         .collect();
 
-    // Create Transaction structs
     let mut transactions: Vec<(Transaction, u64)> = tx_amounts
         .iter()
         .filter_map(|(txid, amount)| {
@@ -101,7 +98,6 @@ pub async fn list_transactions(state: State<'_, AppState>) -> Result<Vec<Transac
         })
         .collect();
 
-    // Sort by descending DAA score (most recent first) and limit to last 20
     transactions.sort_by(|a, b| b.1.cmp(&a.1));
     let recent_transactions: Vec<Transaction> = transactions
         .into_iter()

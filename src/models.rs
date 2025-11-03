@@ -67,6 +67,7 @@ pub enum Screen {
     ImportWallet,
     MnemonicDisplay(String),
     Wallet,
+    Receive,
     Transactions,
     Send,
 }

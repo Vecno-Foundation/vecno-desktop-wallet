@@ -1,7 +1,6 @@
 use yew::prelude::*;
-use crate::utils::ve_to_veni;
-use crate::models::SentTxInfo;
-use crate::utils::format_amount;
+use crate::utils::{ve_to_veni, format_amount};
+use crate::models::{SentTxInfo, Transaction};
 
 #[derive(Properties, PartialEq)]
 pub struct SendProps {
@@ -11,7 +10,10 @@ pub struct SendProps {
     pub balance: String,
     pub is_loading: bool,
     pub wallet_created: bool,
-    pub on_copy_txid: Callback<MouseEvent>,
+    #[prop_or_default]
+    pub sent_transactions: Vec<SentTxInfo>,
+    pub on_tx_click: Callback<Transaction>,
+    pub our_receive_address: String,
 }
 
 #[function_component(Send)]
@@ -27,6 +29,7 @@ pub fn send(props: &SendProps) -> Html {
             }
         })
     };
+
     let on_amount = {
         let a = amount_ve.clone();
         Callback::from(move |e: InputEvent| {
@@ -53,24 +56,61 @@ pub fn send(props: &SendProps) -> Html {
         })
     };
 
-    let copy_txid = props.on_copy_txid.clone();
+    let sent_to_tx = |sent: &SentTxInfo| Transaction {
+        txid: sent.txid.clone(),
+        to_address: sent.to_address.clone(),
+        amount: sent.amount,
+        timestamp: sent.timestamp.clone(),
+    };
+
+    let mut recent: Vec<SentTxInfo> = props.sent_transactions.clone();
+    recent.reverse();
+    let recent = recent.into_iter().take(4).collect::<Vec<_>>();
+    let chunks: Vec<Vec<SentTxInfo>> = recent.chunks(2).map(|c| c.to_vec()).collect();
+
+    let on_tx_click = props.on_tx_click.clone();
 
     html! {
         <div class="screen-container">
             <div class="balance-container">
                 <h2>{"Wallet Balance"}</h2>
-                <p class={classes!("balance", if props.is_loading && props.balance.is_empty() {"loading"} else {""})}>
-                    { if props.is_loading && props.balance.is_empty() { "Fetching..." } else { &props.balance }}
+                <p class={classes!(
+                    "balance",
+                    if props.is_loading && props.balance.is_empty() { "loading" } else { "" }
+                )}>
+                    { if props.is_loading && props.balance.is_empty() {
+                        "Fetching..."
+                    } else {
+                        &props.balance
+                    }}
                 </p>
             </div>
 
             <form class="row" {onsubmit}>
-                <input placeholder="vecno:qrh6mye3..." oninput={on_to}
-                       disabled={props.is_loading || !props.wallet_created} class="input" />
-                <input type="number" inputmode="decimal" placeholder="Amount (VE)" step="any"
-                       oninput={on_amount} disabled={props.is_loading || !props.wallet_created} class="input" />
-                <button type="submit" disabled={props.is_loading || !props.wallet_created}
-                        class={classes!("btn","btn-primary", if props.is_loading {"loading"} else {""})}>
+                <input
+                    placeholder="vecno:qrh6mye3..."
+                    oninput={on_to}
+                    disabled={props.is_loading || !props.wallet_created}
+                    class="input"
+                />
+                <input
+                    type="number"
+                    inputmode="decimal"
+                    placeholder="Amount (VE)"
+                    step="any"
+                    oninput={on_amount}
+                    disabled={props.is_loading || !props.wallet_created}
+                    class="input"
+                />
+                <button
+                    type="submit"
+                    disabled={props.is_loading || !props.wallet_created}
+                    class={classes!(
+                        "btn",
+                        "btn-primary",
+                        if props.is_loading { "loading" } else { "" }
+                    )}
+                >
                     {"Send Transaction"}
                 </button>
             </form>
@@ -79,28 +119,42 @@ pub fn send(props: &SendProps) -> Html {
                 html! { <p class="status">{ &props.transaction_status }</p> }
             } else { html!{} }}
 
-            { if let Some(ref sent) = props.last_sent {
+            { if !props.sent_transactions.is_empty() {
                 html! {
-                    <div class="transaction-result">
-                        <p><strong>{"Last sent transaction"}</strong></p>
-                        <div class="tx-card sent-tx">
-                            <div class="tx-header">
-                                <span class="icon outgoing"></span>
-                                <strong>{"Sent"}</strong>
-                            </div>
-                            <div class="tx-body">
-                                <p class="tx-amt amount-out">
-                                    { "-" }{ format_amount(sent.amount) }
-                                </p>
-                                <p class="tx-time">{ &sent.timestamp }</p>
-                                <p class="tx-addr">{"to "}{ &sent.to_address }</p>
-                                <div class="txid-box">
-                                    <code class="txid-text">{ &sent.txid }</code>
-                                    <button onclick={copy_txid.clone()} class="btn btn-sm btn-copy">{"Copy"}</button>
-                                </div>
-                            </div>
+                    <>
+                        <h3 class="send-recent-title">{"Recent Sent Transactions"}</h3>
+                        <div class="send-tx-grid">
+                            { for chunks.iter().map(move |chunk| {
+                                let on_tx_click = on_tx_click.clone();
+                                html! {
+                                    <>
+                                        { for chunk.iter().map(move |sent| {
+                                            let tx = sent_to_tx(sent);
+                                            let on_click = {
+                                                let tx = tx.clone();
+                                                let cb = on_tx_click.clone();
+                                                Callback::from(move |_| cb.emit(tx.clone()))
+                                            };
+                                            html! {
+                                                <div class="send-tx-card" onclick={on_click}>
+                                                    <div class="send-tx-header">
+                                                        <span class="icon outgoing"></span>
+                                                        <strong>{"Sent"}</strong>
+                                                    </div>
+                                                    <div class="send-tx-amt">
+                                                        { "-" }{ format_amount(sent.amount) }
+                                                    </div>
+                                                    <div class="send-tx-time">
+                                                        { &sent.timestamp }
+                                                    </div>
+                                                </div>
+                                            }
+                                        })}
+                                    </>
+                                }
+                            })}
                         </div>
-                    </div>
+                    </>
                 }
             } else { html!{} }}
         </div>

@@ -3,7 +3,8 @@ use std::sync::Arc;
 use tauri::async_runtime::Mutex;
 use vecno_wallet_core::prelude::*;
 use vecno_wrpc_client::prelude::Resolver;
-use tauri::AppHandle;
+use vecno_wallet_core::error::Error as WalletError;
+use std::io;
 
 #[derive(Serialize)]
 pub struct ErrorResponse {
@@ -22,16 +23,10 @@ pub struct NodeCache {
 
 pub struct AppState {
     pub wallet: Mutex<Option<Arc<Wallet>>>,
-
     pub resolver: Mutex<Option<Resolver>>,
-
     pub wallet_secret: Mutex<Option<Secret>>,
-
     pub mnemonic: Mutex<Option<String>>,
-
     pub node_cache: Mutex<NodeCache>,
-
-    pub app_handle: AppHandle,
 }
 
 #[derive(Serialize, Debug, Deserialize)]
@@ -47,9 +42,6 @@ pub struct WalletFile {
     pub name: String,
     pub path: String,
 }
-
-use vecno_wallet_core::error::Error as WalletError;
-use std::io;
 
 impl From<WalletError> for ErrorResponse {
     fn from(err: WalletError) -> Self {

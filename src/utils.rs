@@ -6,7 +6,6 @@ use log::error;
 use js_sys::{Promise, Reflect};
 use wasm_bindgen_futures::JsFuture;
 
-// Re-export invoke
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
@@ -95,21 +94,17 @@ pub fn clear_status_after_delay(status: UseStateHandle<String>, delay_ms: u64) {
     });
 }
 
-// Add this function
 pub fn get_error_message(res: JsValue) -> String {
-    // 1. Try { error: "..." }
     if let Ok(error_val) = Reflect::get(&res, &"error".into()) {
         if let Some(s) = error_val.as_string() {
             return s;
         }
     }
 
-    // 2. Try plain string
     if let Some(s) = res.as_string() {
         return s;
     }
 
-    // 3. Fallback
     format!("{:?}", res)
 }
 

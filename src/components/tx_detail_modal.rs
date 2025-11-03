@@ -1,4 +1,3 @@
-// src/components/tx_detail_modal.rs
 use yew::prelude::*;
 use crate::models::Transaction;
 use crate::utils::format_amount;
@@ -33,7 +32,6 @@ pub fn tx_detail_modal(props: &TxDetailProps) -> Html {
             let window = window().expect("window should exist");
 
             spawn_local(async move {
-                // Dynamically check for Tauri and call opener.openUrl if available
                 let global = js_sys::global();
                 if let Ok(tauri_obj) = Reflect::get(&global, &JsValue::from("__TAURI__")) {
                     if let Ok(opener_obj) = Reflect::get(&tauri_obj, &JsValue::from("opener")) {
@@ -44,7 +42,6 @@ pub fn tx_detail_modal(props: &TxDetailProps) -> Html {
                         }
                     }
                 }
-                // Fallback to window.open for plain browser dev
                 let _ = window.open_with_url_and_target(&url, "_blank");
             });
         })

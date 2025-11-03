@@ -1,4 +1,3 @@
-// src-tauri/src/send_transactions.rs
 use crate::state::{AppState, ErrorResponse};
 use tauri::{command, State};
 use vecno_addresses::Address;
@@ -93,7 +92,6 @@ pub async fn send_transaction(
     let receive_manager: Arc<AddressManager> = derivation.derivation().receive_address_manager();
     let change_manager: Arc<AddressManager> = derivation.derivation().change_address_manager();
 
-    // Ensure addresses are valid
     receive_manager
         .current_address()
         .map_err(|e| ErrorResponse { error: format!("Receive address error: {e}") })?;
@@ -104,7 +102,6 @@ pub async fn send_transaction(
     let rpc = wallet.rpc_api();
     let current_daa_score = fetch_current_daa_score(rpc.as_ref()).await?;
 
-    // Scan receive and change addresses
     let receive_scan = Scan::new_with_address_manager(
         receive_manager.clone(),
         &Arc::new(AtomicBalance::default()),
@@ -126,7 +123,6 @@ pub async fn send_transaction(
     )
     .map_err(|e| ErrorResponse { error: format!("Scan failed: {e}") })?;
 
-    // Collect mature UTXOs
     let utxo_entries = get_mature_utxos(&utxo_context).await?;
     let total_available: u64 = utxo_entries.iter().map(|u| u.amount()).sum();
 
@@ -146,26 +142,21 @@ pub async fn send_transaction(
         });
     }
 
-    // Convert to iterator for generator
     let utxo_iterator = utxo_entries.into_iter().map(UtxoEntryReference::from);
 
-    // Create signer
     let signer = Arc::new(Signer::new(
         account.clone(),
         prv_key_data,
         None::<Secret>,
     ));
 
-    // Parse target address
     let target_address = Address::try_from(to_address.as_str())
         .map_err(|e| ErrorResponse { error: format!("Invalid address: {e}") })?;
 
-    // Get change address
     let change_address = account
         .change_address()
         .map_err(|e| ErrorResponse { error: format!("Change address error: {e}") })?;
 
-    // Generator settings
     let settings = GeneratorSettings {
         network_id: wallet.network_id()?,
         multiplexer: None,
@@ -206,7 +197,6 @@ pub async fn send_transaction(
         tx_ids.push(rpc_id.to_string());
     }
 
-    // Only return the LAST transaction ID + extra info
     let last_tx_id = tx_ids.last().cloned().unwrap_or_default();
 
     let sent = SentTxInfo {
