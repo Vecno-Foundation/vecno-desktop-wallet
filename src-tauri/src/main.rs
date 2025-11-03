@@ -23,6 +23,7 @@ const ATTACH_PARENT_PROCESS: u32 = 0xFFFFFFFF;
 
 #[tokio::main]
 async fn main() {
+    console_error_panic_hook::set_once();
     #[cfg(windows)]
     {
         unsafe {
@@ -69,6 +70,7 @@ async fn main() {
             checks::get_address,
             balance::get_balance,
             send_transactions::send_transaction,
+            checks::verify_wallet_password,
             checks::list_wallets,
             get_transactions::list_transactions,
             wallet::open::open_wallet,
