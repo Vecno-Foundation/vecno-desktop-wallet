@@ -13,6 +13,26 @@ extern "C" {
     pub async fn invoke(cmd: &str, args: JsValue) -> JsValue;
 }
 
+pub async fn safe_invoke(cmd: &str, args: JsValue) -> Result<JsValue, String> {
+    let window = web_sys::window().ok_or("No window")?;
+    let tauri = Reflect::get(&window, &"__TAURI__".into())
+        .map_err(|e| format!("Tauri not found: {:?}", e))?;
+    let core = Reflect::get(&tauri, &"core".into())
+        .map_err(|e| format!("Tauri core not found: {:?}", e))?;
+    let invoke_fn = Reflect::get(&core, &"invoke".into())
+        .map_err(|e| format!("invoke not found: {:?}", e))?;
+
+    let func = js_sys::Function::from(invoke_fn);
+    let promise = func.call2(&JsValue::NULL, &cmd.into(), &args)
+        .map_err(|e| format!("Call failed: {:?}", e))?;
+
+    let promise = Promise::from(promise);
+    let result = JsFuture::from(promise).await
+        .map_err(|js_err| get_error_message(js_err))?;
+
+    Ok(result)
+}
+
 pub fn is_valid_filename(filename: &str) -> bool {
     let invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*', ','];
     !filename.is_empty() && !filename.contains(&invalid_chars[..]) && filename.len() <= 255

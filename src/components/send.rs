@@ -42,7 +42,7 @@ pub fn send(props: &SendProps) -> Html {
             e.prevent_default();
             let to = (*to).clone();
             let amt = (*amt).clone();
-            if to.is_empty() || amt.is_empty() || !to.starts_with("vecno:") {
+            if to.is_empty() || amt.is_empty() {
                 return;
             }
             if let Some(veni) = ve_to_veni(&amt) {

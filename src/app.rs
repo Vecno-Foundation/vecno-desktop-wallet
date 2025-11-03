@@ -509,10 +509,7 @@ pub fn app() -> Html {
                 pt.emit(("Recipient address is required".into(), ToastKind::Error));
                 return;
             }
-            if !to_addr.starts_with("vecno:") {
-                pt.emit(("Invalid address format. Must start with 'vecno:'".into(), ToastKind::Error));
-                return;
-            }
+
             if amount_veni == 0 {
                 pt.emit(("Amount must be greater than 0".into(), ToastKind::Error));
                 return;
@@ -535,13 +532,26 @@ pub fn app() -> Html {
                     amount: amount_veni,
                 })
                 .unwrap_or(JsValue::NULL);
-                let res = invoke("send_transaction", args).await;
+                let res = match safe_invoke("send_transaction", args).await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        pt.emit((e, ToastKind::Error));
+                        l.set(false);
+                        return;
+                    }
+                };
 
                 let msg = get_error_message(res.clone());
 
                 if let Some(txid) = res.as_string() {
                     last.set(txid.clone());
                     pt.emit(("Transaction sent!".into(), ToastKind::Success));
+
+                } else if msg.contains("Invalid address") || msg.contains("checksum") || msg.contains("payload") {
+                    pt.emit((msg, ToastKind::Error));
+                } else {
+                    pt.emit((msg, ToastKind::Error));
+                }
                     let list_res = invoke("list_transactions", JsValue::NULL).await;
                     if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(list_res) {
                         txs.set(list);
@@ -549,10 +559,6 @@ pub fn app() -> Html {
                     if !(*addrs).is_empty() {
                         fetch_balance(addrs.clone(), bal.clone(), l.clone(), pt.clone()).await;
                     }
-                } else {
-                    pt.emit((msg, ToastKind::Error));
-                }
-                l.set(false);
             });
         })
     };
