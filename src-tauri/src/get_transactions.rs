@@ -31,13 +31,15 @@ pub async fn list_transactions(state: State<'_, AppState>) -> Result<Vec<Transac
 
     let account: Arc<dyn Account> = wallet.account().map_err(ErrorResponse::from)?;
     let receive_address = account.receive_address().map_err(ErrorResponse::from)?;
+    let change_address = account.change_address().map_err(ErrorResponse::from)?;
 
-    // Fetch UTXOs for the receive address to get recent incoming transaction IDs
-    // Note: This provides tx details for transactions that created UTXOs (incoming).
-    // For full history (including outgoing), additional logic like scanning mempool or chain would be needed.
+    let receive_addr = receive_address.clone();
+    let change_addr = change_address.clone();
+
+    let addresses = vec![receive_address.clone(), change_address.clone()];
     let utxos: Vec<RpcUtxosByAddressesEntry> = wallet
         .rpc_api()
-        .get_utxos_by_addresses(vec![receive_address.clone()])
+        .get_utxos_by_addresses(addresses)
         .await
         .map_err(|e| ErrorResponse {
             error: format!("Failed to fetch UTXOs: {}", e),
@@ -45,65 +47,74 @@ pub async fn list_transactions(state: State<'_, AppState>) -> Result<Vec<Transac
 
     let mut tx_amounts: HashMap<TransactionId, u64> = HashMap::new();
     let mut tx_daa: HashMap<TransactionId, u64> = HashMap::new();
+    let mut tx_to_address: HashMap<TransactionId, String> = HashMap::new();
     let mut seen_txids: HashSet<TransactionId> = HashSet::new();
 
     for entry in &utxos {
         let outpoint: TransactionOutpoint = entry.outpoint.clone().into();
         let txid = outpoint.transaction_id.clone();
 
+        let target_address = if entry.address == Some(receive_addr.clone()) {
+            receive_addr.to_string()
+        } else if entry.address == Some(change_addr.clone()) {
+            change_addr.to_string()
+        } else {
+            continue;
+        };
+
         if seen_txids.insert(txid.clone()) {
             let daa_score = entry.utxo_entry.block_daa_score;
             tx_daa.insert(txid.clone(), daa_score);
+            tx_to_address.insert(txid.clone(), target_address);
         }
 
         *tx_amounts.entry(txid).or_insert(0) += entry.utxo_entry.amount;
     }
 
-    let unique_daas: Vec<u64> = tx_daa.values().cloned().collect::<Vec<_>>();
-    let timestamps = wallet
-        .rpc_api()
-        .get_daa_score_timestamp_estimate(unique_daas.clone())
-        .await
-        .map_err(|e| ErrorResponse {
-            error: format!("Failed to fetch timestamps for DAA scores: {}", e),
-        })?;
-    let daa_to_ts: HashMap<u64, u64> = unique_daas
-        .into_iter()
-        .zip(timestamps.into_iter())
-        .collect();
+    let unique_daas: Vec<u64> = tx_daa.values().cloned().collect();
+    let timestamps = if !unique_daas.is_empty() {
+        wallet
+            .rpc_api()
+            .get_daa_score_timestamp_estimate(unique_daas.clone())
+            .await
+            .map_err(|e| ErrorResponse {
+                error: format!("Failed to fetch timestamps: {}", e),
+            })?
+    } else {
+        vec![]
+    };
+
+    let daa_to_ts: HashMap<u64, u64> = unique_daas.into_iter().zip(timestamps).collect();
 
     let mut transactions: Vec<(Transaction, u64)> = tx_amounts
         .iter()
         .filter_map(|(txid, amount)| {
-            tx_daa.get(txid).map(|daa| {
-                let timestamp = if let Some(&ts_ms) = daa_to_ts.get(daa) {
-                    let ts_sec = ts_ms / 1000;
-                    let ts_nsec = ((ts_ms % 1000) * 1_000_000) as u32;
-                    Local
-                        .timestamp_opt(ts_sec as i64, ts_nsec)
-                        .single()
-                        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-                        .unwrap_or_else(|| format!("DAA Score: {}", daa))
-                } else {
-                    format!("DAA Score: {}", daa)
-                };
-                let transaction = Transaction {
-                    txid: txid.to_string(),
-                    to_address: receive_address.to_string(),
-                    amount: *amount,
-                    timestamp,
-                };
-                (transaction, *daa)
-            })
+            let daa = tx_daa.get(txid)?;
+            let to_addr = tx_to_address.get(txid)?.clone();
+
+            let timestamp = daa_to_ts.get(daa).map(|&ts_ms| {
+                let ts_sec = ts_ms / 1000;
+                let ts_nsec = ((ts_ms % 1000) * 1_000_000) as u32;
+                Local
+                    .timestamp_opt(ts_sec as i64, ts_nsec)
+                    .single()
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+                    .unwrap_or_else(|| format!("DAA: {}", daa))
+            }).unwrap_or_else(|| format!("DAA: {}", daa));
+
+            let transaction = Transaction {
+                txid: txid.to_string(),
+                to_address: to_addr,
+                amount: *amount,
+                timestamp,
+            };
+
+            Some((transaction, *daa))
         })
         .collect();
 
-    transactions.sort_by(|a, b| b.1.cmp(&a.1));
-    let recent_transactions: Vec<Transaction> = transactions
-        .into_iter()
-        .take(20)
-        .map(|(tx, _)| tx)
-        .collect();
+    transactions.sort_by_key(|(_, daa)| std::cmp::Reverse(*daa));
+    let recent_transactions: Vec<Transaction> = transactions.into_iter().take(20).map(|(tx, _)| tx).collect();
 
     Ok(recent_transactions)
 }

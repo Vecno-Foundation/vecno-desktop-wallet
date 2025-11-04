@@ -1,6 +1,7 @@
 use crate::state::{AppState, ErrorResponse};
 use tauri::{command, State};
 use vecno_addresses::Address;
+use crate::models::SendTransactionInput;
 use vecno_wallet_core::prelude::*;
 use vecno_wrpc_client::prelude::RpcApi;
 use vecno_wallet_core::tx::generator::{Generator, GeneratorSettings};
@@ -44,10 +45,13 @@ pub struct SentTxInfo {
 
 #[command]
 pub async fn send_transaction(
-    to_address: String,
-    amount: u64,
+    input: SendTransactionInput,
     state: State<'_, AppState>,
 ) -> Result<SentTxInfo, ErrorResponse> {
+    let to_address = input.to_address;
+    let amount = input.amount;
+    let payment_secret = input.payment_secret;
+
     let wallet_guard = state.wallet.lock().await;
     let wallet = wallet_guard
         .as_ref()
@@ -144,10 +148,27 @@ pub async fn send_transaction(
 
     let utxo_iterator = utxo_entries.into_iter().map(UtxoEntryReference::from);
 
+    let secret_opt: Option<Secret> = payment_secret
+        .as_ref()
+        .and_then(|s| {
+            let s = s.trim();
+            if s.is_empty() {
+                None
+            } else {
+                Some(Secret::from(s))
+            }
+        });
+
+    if prv_key_data.payload.is_encrypted() && secret_opt.is_none() {
+        return Err(ErrorResponse {
+            error: "🔐 Wallet is encrypted! You MUST enter your Payment Secret to send.".into(),
+        });
+    }
+
     let signer = Arc::new(Signer::new(
         account.clone(),
         prv_key_data,
-        None::<Secret>,
+        secret_opt,
     ));
 
     let target_address = Address::try_from(to_address.as_str())

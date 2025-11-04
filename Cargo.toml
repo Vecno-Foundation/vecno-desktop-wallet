@@ -17,7 +17,8 @@ web-sys = { version = "0.3.70", features = [
   "Navigator",
   "Clipboard",
   "ClipboardEvent",
-  "DataTransfer"
+  "DataTransfer",
+  "EventListenerOptions"
 ] }
 js-sys = "0.3.70"
 

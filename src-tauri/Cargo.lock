@@ -6741,6 +6741,7 @@ dependencies = [
  "env_logger",
  "futures-lite",
  "futures-util",
+ "hex",
  "log",
  "rand 0.8.5",
  "serde",

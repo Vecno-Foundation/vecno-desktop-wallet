@@ -1,160 +1,159 @@
+use crate::models::CreateWalletInput;
 use crate::state::{AppState, ErrorResponse};
-use tauri::{command, State};
-use vecno_wallet_core::prelude::*;
-use vecno_wallet_core::storage::local::{Storage, WalletStorage, Payload};
-use vecno_wallet_core::storage::interface::CreateArgs;
-use vecno_wallet_core::wallet::args::{AccountCreateArgsBip32, PrvKeyDataCreateArgs};
-use vecno_wallet_core::storage::keydata::PrvKeyDataVariantKind;
-use bip39::{Mnemonic, Language};
-use rand::Rng;
-use log::{error, info};
+use bip39::{Language, Mnemonic};
+use log::info;
+use rand::RngCore;
 use std::sync::Arc;
-use vecno_wrpc_client::prelude::{Resolver, WrpcEncoding, ConnectOptions, ConnectStrategy};
+use tauri::{command, State};
 use vecno_consensus_core::network::{NetworkId, NetworkType};
+use vecno_wallet_core::prelude::*;
+use vecno_wallet_core::storage::interface::CreateArgs;
+use vecno_wallet_core::wallet::args::{AccountCreateArgs, PrvKeyDataCreateArgs};
+use vecno_wallet_core::storage::keydata::PrvKeyDataVariantKind;
+use vecno_wrpc_client::prelude::{ConnectOptions, ConnectStrategy, Resolver, WrpcEncoding};
 use vecno_wallet_core::settings::application_folder;
 
 #[command]
-pub async fn create_wallet(secret: String, filename: String, state: State<'_, AppState>) -> Result<String, ErrorResponse> {
+pub async fn create_wallet(
+    input: CreateWalletInput,
+    state: State<'_, AppState>,
+) -> Result<String, ErrorResponse> {
+    let secret = input.secret.trim();
+    let filename = input.filename.trim();
+    let payment_passphrase = input.payment_secret.as_deref().map(str::trim);
+
+    info!(
+        "create_wallet → file: '{}', payment_passphrase_provided: {}",
+        filename,
+        payment_passphrase.is_some()
+    );
+
     if secret.is_empty() {
-        return Err(ErrorResponse { error: "Wallet password is required".to_string() });
+        return Err(ErrorResponse { error: "Wallet password is required".into() });
     }
     if filename.is_empty() {
-        return Err(ErrorResponse { error: "Wallet filename is required".to_string() });
+        return Err(ErrorResponse { error: "Wallet filename is required".into() });
     }
 
-    let network_id = NetworkId::new(NetworkType::Mainnet);
-    let wallet_dir = application_folder().map_err(|e| {
-        error!("Failed to get application folder: {}", e);
-        ErrorResponse { error: e.to_string() }
-    })?;
-    let storage_path = wallet_dir.join(&filename);
+    let mut entropy = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut entropy);
+    let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)
+        .map_err(|e| ErrorResponse { error: e.to_string() })?
+        .to_string();
 
-    let storage = Storage::try_new(storage_path.to_str().ok_or_else(|| ErrorResponse { error: "Invalid path".to_string() })?).map_err(|e| {
-        error!("Storage initialization failed: {}", e);
-        ErrorResponse { error: e.to_string() }
-    })?;
+    info!("Generated 24-word mnemonic");
 
-    let store = Wallet::local_store().map_err(|e| {
-        error!("Local store creation failed: {}", e);
-        ErrorResponse { error: e.to_string() }
-    })?;
+    let payment_secret_opt = payment_passphrase
+        .filter(|s| !s.is_empty())
+        .map(|s| Secret::new(s.as_bytes().to_vec()));
+
+    let wallet_dir = application_folder().map_err(|e| ErrorResponse { error: e.to_string() })?;
+    let storage_path = wallet_dir.join(filename);
+    let storage_path_str = storage_path
+        .to_str()
+        .ok_or_else(|| ErrorResponse { error: "Invalid path".into() })?
+        .to_string();
+
+    let store: Arc<dyn Interface> = Wallet::local_store()
+        .map_err(|e| ErrorResponse { error: e.to_string() })?;
+
     let wallet_secret = Secret::new(secret.as_bytes().to_vec());
+
     let create_args = CreateArgs {
-        title: Some("My Wallet".to_string()),
-        filename: Some(storage_path.to_str().ok_or_else(|| ErrorResponse { error: "Invalid path".to_string() })?.to_string()),
+        title: Some("My Wallet".into()),
+        filename: Some(storage_path_str.clone()),
         encryption_kind: EncryptionKind::XChaCha20Poly1305,
         user_hint: None,
         overwrite_wallet: true,
     };
-    store.create(&wallet_secret, create_args).await.map_err(|e| {
-        error!("Store creation failed: {}", e);
-        ErrorResponse { error: e.to_string() }
-    })?;
 
+    store
+        .create(&wallet_secret, create_args)
+        .await
+        .map_err(|e| ErrorResponse { error: e.to_string() })?;
+
+    let network_id = NetworkId::new(NetworkType::Mainnet);
     let resolver = Resolver::default();
-    info!("Initializing resolver for wallet creation");
-    let wallet = Arc::new(Wallet::try_new(store.clone(), Some(resolver.clone()), Some(network_id)).map_err(|e| {
-        error!("Wallet creation failed: {}", e);
-        ErrorResponse { error: format!("Wallet creation failed: {}", e) }
-    })?);
 
-    if let Some(wrpc_client) = wallet.try_wrpc_client().as_ref() {
-        let url = resolver.get_url(WrpcEncoding::Borsh, network_id).await.map_err(|e| {
-            error!("Failed to get resolver URL: {}", e);
-            ErrorResponse { error: format!("Failed to resolve node URL: {}. Ensure seed.vecnoscan.org is reachable.", e) }
-        })?;
-        info!("Connecting to node: {}", url);
-        let options = ConnectOptions {
+    let wallet = Arc::new(
+        Wallet::try_new(store.clone(), Some(resolver.clone()), Some(network_id))
+            .map_err(|e| ErrorResponse { error: format!("Wallet init failed: {}", e) })?,
+    );
+
+    if let Some(wrpc) = wallet.try_wrpc_client().as_ref() {
+        let url = resolver
+            .get_url(WrpcEncoding::Borsh, network_id)
+            .await
+            .map_err(|e| ErrorResponse { error: format!("Node resolve failed: {}", e) })?;
+
+        let opts = ConnectOptions {
             block_async_connect: true,
             strategy: ConnectStrategy::Fallback,
             url: Some(url),
             ..Default::default()
         };
-        wrpc_client.connect(Some(options)).await.map_err(|e| {
-            error!("Failed to connect to node: {}. Check Resolvers.toml for valid endpoints.", e);
-            ErrorResponse { error: format!("Failed to connect to node: {}. Ensure seed.vecnoscan.org is reachable or run a local node.", e) }
-        })?;
+
+        wrpc.connect(Some(opts)).await
+            .map_err(|e| ErrorResponse { error: format!("Node connect failed: {}", e) })?;
+        info!("Connected to node");
     } else {
-        error!("No wRPC client available for wallet");
-        return Err(ErrorResponse { error: "No wRPC client available. Ensure wallet is properly initialized.".to_string() });
+        return Err(ErrorResponse { error: "No wRPC client".into() });
     }
 
     if !wallet.is_open() {
-        error!("Wallet is not open after initialization");
-        return Err(ErrorResponse { error: "Failed to open wallet: initialization error".to_string() });
+        return Err(ErrorResponse { error: "Wallet failed to open".into() });
     }
-
-    let entropy = rand::thread_rng().gen::<[u8; 32]>();
-    let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy).map_err(|e| {
-        error!("Mnemonic generation failed: {}", e);
-        ErrorResponse { error: e.to_string() }
-    })?.to_string();
-
-    let prv_key_data = PrvKeyDataCreateArgs {
+    let prv_key_data_args = PrvKeyDataCreateArgs {
         name: None,
-        payment_secret: None,
-        secret: Secret::new(mnemonic.clone().into_bytes()),
+        payment_secret: payment_secret_opt.clone(),
+        secret: Secret::from(mnemonic.clone()),
         kind: PrvKeyDataVariantKind::Mnemonic,
     };
 
     let key_id = wallet
-        .create_prv_key_data(&wallet_secret, prv_key_data)
+        .create_prv_key_data(&wallet_secret, prv_key_data_args)
         .await
-        .map_err(|e| {
-            error!("Private key data creation failed: {}", e);
-            ErrorResponse { error: e.to_string() }
-        })?;
+        .map_err(|e| ErrorResponse { error: e.to_string() })?;
 
-    let account_args = AccountCreateArgsBip32 {
-        account_name: Some("default-account".to_string()),
-        account_index: None,
-    };
+    let guard_mutex = wallet.guard();
+    let guard = guard_mutex.lock().await;
 
-    let _account = wallet
-        .create_account_bip32(&wallet_secret, key_id, None, account_args)
-        .await
-        .map_err(|e| {
-            error!("Account creation failed: {}", e);
-            ErrorResponse { error: e.to_string() }
-        })?;
-
-    let payload = Payload::new(vec![], vec![], vec![]);
-    let wallet_storage = WalletStorage::try_new(
-        Some("My Wallet".to_string()),
+    let account_args = AccountCreateArgs::new_bip32(
+        key_id,
+        payment_secret_opt,
+        Some("default-account".into()),
         None,
-        &wallet_secret,
-        EncryptionKind::XChaCha20Poly1305,
-        payload,
-        vec![],
-    ).map_err(|e| {
-        error!("Wallet storage creation failed: {}", e);
-        ErrorResponse { error: e.to_string() }
-    })?;
+    );
 
-    wallet_storage.try_store(&storage).await.map_err(|e| {
-        error!("Wallet storage failed: {}", e);
-        ErrorResponse { error: e.to_string() }
-    })?;
+    let account = wallet
+        .create_account(&wallet_secret, account_args, false, &guard)
+        .await
+        .map_err(|e| ErrorResponse { error: e.to_string() })?;
 
-    wallet.select(Some(&_account)).await.map_err(|e| {
-        error!("Wallet selection failed: {}", e);
-        ErrorResponse { error: e.to_string() }
-    })?;
+    store.batch().await
+        .map_err(|e| ErrorResponse { error: format!("Failed to start batch: {}", e) })?;
 
-    if let Err(e) = _account.start().await {
-        error!("Account start failed: {}. Ensure Vecno node is running.", e);
-        return Err(ErrorResponse { error: format!("Failed to start account: {}. Ensure seed.vecnoscan.org is reachable or run a local node.", e) });
+    wallet.select(Some(&account)).await
+        .map_err(|e| ErrorResponse { error: e.to_string() })?;
+    account.start().await
+        .map_err(|e| ErrorResponse { error: format!("Account start failed: {}", e) })?;
+
+    store.flush(&wallet_secret).await
+        .map_err(|e| ErrorResponse { error: format!("Flush failed: {}", e) })?;
+
+    {
+        let mut w = state.wallet.lock().await;
+        let mut r = state.resolver.lock().await;
+        let mut s = state.wallet_secret.lock().await;
+        let mut m = state.mnemonic.lock().await;
+
+        *w = Some(wallet.clone());
+        *r = Some(resolver);
+        *s = Some(wallet_secret);
+        *m = Some(mnemonic.clone());
     }
 
-    let mut wallet_state = state.wallet.lock().await;
-    let mut resolver_state = state.resolver.lock().await;
-    let mut secret_state = state.wallet_secret.lock().await;
-    let mut mnemonic_state = state.mnemonic.lock().await;
-    *wallet_state = Some(wallet.clone());
-    *resolver_state = Some(resolver);
-    *secret_state = Some(wallet_secret);
-    *mnemonic_state = Some(mnemonic.clone());
-
     info!("Wallet successfully created at {}", storage_path.display());
+
     Ok(format!("Success: Wallet created at {} with mnemonic: {}", storage_path.display(), mnemonic))
 }

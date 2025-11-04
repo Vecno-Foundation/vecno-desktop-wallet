@@ -4,6 +4,7 @@ use tauri::async_runtime::Mutex;
 use vecno_wallet_core::prelude::*;
 use vecno_wrpc_client::prelude::Resolver;
 use vecno_wallet_core::error::Error as WalletError;
+use vecno_wrpc_client::error::Error as WrpcError;
 use std::io;
 
 #[derive(Serialize)]
@@ -27,6 +28,7 @@ pub struct AppState {
     pub wallet_secret: Mutex<Option<Secret>>,
     pub mnemonic: Mutex<Option<String>>,
     pub node_cache: Mutex<NodeCache>,
+    pub bip39_seed: Mutex<Option<String>>,
 }
 
 #[derive(Serialize, Debug, Deserialize)]
@@ -51,6 +53,12 @@ impl From<WalletError> for ErrorResponse {
 
 impl From<io::Error> for ErrorResponse {
     fn from(err: io::Error) -> Self {
+        ErrorResponse { error: err.to_string() }
+    }
+}
+
+impl From<WrpcError> for ErrorResponse {
+    fn from(err: WrpcError) -> Self {
         ErrorResponse { error: err.to_string() }
     }
 }

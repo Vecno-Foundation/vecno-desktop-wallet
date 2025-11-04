@@ -55,3 +55,4 @@ workflow-rpc = { version = "0.18.0", default-features = false, features = ["rust
 borsh = { version = "1.5.7", features = ["rc"] }
 bip39 = "2.2"
 rand = "0.8"
+hex = "0.4.3"

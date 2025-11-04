@@ -8,16 +8,17 @@ pub struct WalletAddress {
     pub change_address: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Debug, Deserialize)]
 pub struct CreateWalletArgs {
     pub secret: String,
     pub filename: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Debug, Deserialize)]
 pub struct ImportWalletArgs {
     pub mnemonic: String,
     pub secret: String,
+    pub payment_secret: Option<String>,
     pub filename: String,
 }
 

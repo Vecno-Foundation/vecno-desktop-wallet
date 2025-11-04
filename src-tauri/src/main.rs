@@ -5,6 +5,7 @@ mod send_transactions;
 mod get_transactions;
 mod balance;
 mod node;
+mod models;
 
 use state::{AppState, NodeCache};
 use tauri::async_runtime::Mutex;
@@ -55,6 +56,7 @@ async fn main() {
                 wallet_secret: Mutex::new(None),
                 mnemonic: Mutex::new(None),
                 node_cache: Mutex::new(NodeCache::default()),
+                bip39_seed: Mutex::new(None),
             });
             Ok(())
         })

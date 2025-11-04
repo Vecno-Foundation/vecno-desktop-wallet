@@ -65,7 +65,6 @@ async fn fetch_balance(
 pub fn app() -> Html {
     let screen = use_state(|| Screen::Intro);
     let intro_done = use_state(|| false);
-
     {
         let screen = screen.clone();
         let intro_done = intro_done.clone();
@@ -83,7 +82,6 @@ pub fn app() -> Html {
             || drop(timeout)
         });
     }
-
     let (_toast_state, push_toast, _clear_toast, toast_html) = use_toast();
     let wallet_created = use_state(|| false);
     let addresses = use_state(|| Vec::<WalletAddress>::new());
@@ -99,7 +97,6 @@ pub fn app() -> Html {
     let show_modal = use_state(|| false);
     let last_sent = use_state(|| Option::<SentTxInfo>::None);
     let sent_transactions = use_state(|| Vec::<SentTxInfo>::new());
-
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
     {
@@ -112,7 +109,6 @@ pub fn app() -> Html {
             || {}
         });
     }
-
     {
         let node_connected = node_connected.clone();
         let node_info = node_info.clone();
@@ -148,7 +144,6 @@ pub fn app() -> Html {
             || {}
         });
     }
-
     {
         let screen = screen.clone();
         let available_wallets = available_wallets.clone();
@@ -175,7 +170,6 @@ pub fn app() -> Html {
             || {}
         });
     }
-
     {
         let screen = screen.clone();
         let wallet_created = wallet_created.clone();
@@ -214,7 +208,6 @@ pub fn app() -> Html {
             || {}
         });
     }
-
     {
         let addresses = addresses.clone();
         let balance = balance.clone();
@@ -234,7 +227,6 @@ pub fn app() -> Html {
             || {}
         });
     }
-
     {
         let screen = screen.clone();
         let transactions = transactions.clone();
@@ -337,11 +329,15 @@ pub fn app() -> Html {
                 match verify_password(&filename, &secret).await {
                     Ok(()) => {
                         info!("Password correct. Opening wallet...");
-                        let args = serde_wasm_bindgen::to_value(&CreateWalletArgs {
-                            secret: secret.clone(),
-                            filename: filename.clone(),
-                        })
+                        let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                            "input": {
+                                "filename": filename,
+                                "secret": secret,
+                                "payment_secret": null
+                            }
+                        }))
                         .unwrap_or(JsValue::NULL);
+
                         let res = invoke("open_wallet", args).await;
                         let msg = get_error_message(res.clone());
                         if let Some(s) = res.as_string() {
@@ -375,7 +371,7 @@ pub fn app() -> Html {
         let scr = screen.clone();
         let l = is_loading.clone();
         let pt = push_toast.clone();
-        Callback::from(move |(filename, secret): (String, String)| {
+        Callback::from(move |(filename, secret, payment_secret): (String, String, Option<String>)| {
             if filename.is_empty() {
                 pt.emit(("Wallet filename is required".into(), ToastKind::Error));
                 return;
@@ -398,8 +394,15 @@ pub fn app() -> Html {
             let pt = pt.clone();
             spawn_local(async move {
                 l.set(true);
-                let args = serde_wasm_bindgen::to_value(&CreateWalletArgs { secret, filename })
-                    .unwrap_or(JsValue::NULL);
+                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                    "input": {
+                        "filename": filename,
+                        "secret": secret,
+                        "payment_secret": payment_secret
+                    }
+                }))
+                .unwrap_or(JsValue::NULL);
+
                 let res = invoke("create_wallet", args).await;
                 let msg = get_error_message(res.clone());
                 if let Some(s) = res.as_string() {
@@ -427,7 +430,7 @@ pub fn app() -> Html {
         let scr = screen.clone();
         let l = is_loading.clone();
         let pt = push_toast.clone();
-        Callback::from(move |(mnemonic, secret, filename): (String, String, String)| {
+        Callback::from(move |(mnemonic, secret, payment_secret, filename): (String, String, Option<String>, String)| {
             if mnemonic.is_empty() {
                 pt.emit(("Mnemonic phrase is required".into(), ToastKind::Error));
                 return;
@@ -459,8 +462,17 @@ pub fn app() -> Html {
             let pt = pt.clone();
             spawn_local(async move {
                 l.set(true);
-                let args = serde_wasm_bindgen::to_value(&ImportWalletArgs { mnemonic, secret, filename })
-                    .unwrap_or(JsValue::NULL);
+                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                    "input": {
+                        "mnemonic": mnemonic,
+                        "secret": secret,
+                        "payment_secret": payment_secret,
+                        "filename": filename
+                    }
+                }))
+                .unwrap_or(JsValue::NULL);
+
+                web_sys::console::log_1(&format!("TAURI ARGS: {:?}", args).into());
                 let res = invoke("import_wallets", args).await;
                 let msg = get_error_message(res.clone());
                 if let Some(s) = res.as_string() {
@@ -489,7 +501,7 @@ pub fn app() -> Html {
         let pt = push_toast.clone();
         let last_sent = last_sent.clone();
         let sent_transactions = sent_transactions.clone();
-        Callback::from(move |(to_addr, amount_veni): (String, u64)| {
+        Callback::from(move |(to_addr, amount_veni, payment_secret): (String, u64, Option<String>)| {
             if to_addr.is_empty() {
                 pt.emit(("Recipient address is required".into(), ToastKind::Error));
                 return;
@@ -502,6 +514,7 @@ pub fn app() -> Html {
                 pt.emit(("No wallet open".into(), ToastKind::Error));
                 return;
             }
+
             let l = l.clone();
             let txs = txs.clone();
             let addrs = addrs.clone();
@@ -510,51 +523,43 @@ pub fn app() -> Html {
             let pt = pt.clone();
             let last_sent = last_sent.clone();
             let sent_transactions = sent_transactions.clone();
+
             spawn_local(async move {
                 l.set(true);
-                let args = serde_wasm_bindgen::to_value(&SendTransactionArgs {
-                    to_address: to_addr,
-                    amount: amount_veni,
-                })
-                .unwrap_or(JsValue::NULL);
-                let res = match safe_invoke("send_transaction", args).await {
-                    Ok(r) => r,
-                    Err(e) => {
-                        pt.emit((e, ToastKind::Error));
-                        l.set(false);
-                        return;
+                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                    "input": {
+                        "to_address": to_addr,
+                        "amount": amount_veni,
+                        "payment_secret": payment_secret
                     }
-                };
+                })).unwrap_or(JsValue::NULL);
+
+                let res = invoke("send_transaction", args).await;
                 let res_clone = res.clone();
+
                 if let Ok(sent) = serde_wasm_bindgen::from_value::<SentTxInfo>(res) {
                     last.set(sent.txid.clone());
                     last_sent.set(Some(sent.clone()));
-                    pt.emit(("Transaction sent!".into(), ToastKind::Success));
-
+                    pt.emit((format!("Transaction sent! TXID: {}", sent.txid), ToastKind::Success));
                     let mut current = (*sent_transactions).clone();
                     current.insert(0, sent.clone());
-                    if current.len() > 2 {
-                        current.truncate(2);
-                    }
+                    if current.len() > 10 { current.truncate(10); }
                     sent_transactions.set(current);
 
-                    let mut current_txs = (*txs).clone();
                     let optimistic = Transaction {
                         txid: sent.txid.clone(),
                         to_address: sent.to_address.clone(),
                         amount: sent.amount,
                         timestamp: sent.timestamp.clone(),
                     };
+                    let mut current_txs = (*txs).clone();
                     current_txs.insert(0, optimistic);
                     txs.set(current_txs);
                 } else {
                     let msg = get_error_message(res_clone);
                     pt.emit((msg, ToastKind::Error));
                 }
-                let list_res = invoke("list_transactions", JsValue::NULL).await;
-                if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(list_res) {
-                    txs.set(list);
-                }
+
                 if !(*addrs).is_empty() {
                     fetch_balance(addrs.clone(), bal.clone(), l.clone(), pt.clone()).await;
                 }
@@ -588,7 +593,6 @@ pub fn app() -> Html {
             show.set(true);
         })
     };
-
     let close_modal = {
         let show = show_modal.clone();
         Callback::from(move |_| show.set(false))
