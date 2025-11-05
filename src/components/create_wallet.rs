@@ -172,8 +172,6 @@ pub fn create_wallet(props: &CreateWalletProps) -> Html {
         })
     };
 
-    let has_payment_secret = !(*payment_secret_words).iter().all(|s| s.is_empty());
-
     html! {
         <div class="import-centered">
             <div class="import-inner">
@@ -274,15 +272,6 @@ pub fn create_wallet(props: &CreateWalletProps) -> Html {
                             <p class="status error centered-error">{ (*payment_secret_error).clone() }</p>
                         }
                     </div>
-
-                    if has_payment_secret {
-                        <div class="row">
-                            <div>
-                                <p class="status success">{"Custom secret will be used"}</p>
-                            </div>
-                        </div>
-                    }
-
                     <div class="button-group">
                         <button
                             type="submit"

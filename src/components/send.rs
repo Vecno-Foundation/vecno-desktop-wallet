@@ -1,6 +1,6 @@
 use yew::prelude::*;
 use crate::utils::{ve_to_veni, format_amount};
-use crate::models::{SentTxInfo, Transaction};
+use crate::models::{SentTxInfo, Transaction, ToastKind};
 
 #[derive(Properties, PartialEq)]
 pub struct SendProps {
@@ -14,16 +14,22 @@ pub struct SendProps {
     pub sent_transactions: Vec<SentTxInfo>,
     pub on_tx_click: Callback<Transaction>,
     pub our_receive_address: String,
+    pub push_toast: Callback<(String, ToastKind)>,
 }
 
 #[function_component(Send)]
 pub fn send(props: &SendProps) -> Html {
     let to_addr = use_state(String::new);
     let amount_ve = use_state(String::new);
-
     let payment_secret_words = use_state(|| vec![String::new(); 1]);
     let show_payment_secret = use_state(|| false);
     let has_extended_payment = use_state(|| false);
+    let to_addr_error = use_state(String::new);
+    let amount_error = use_state(String::new);
+    let payment_secret_error = use_state(String::new);
+    let on_send = props.on_send.clone();
+    let push_toast = props.push_toast.clone();
+    let our_receive_address = props.our_receive_address.clone();
 
     {
         let words = payment_secret_words.clone();
@@ -37,34 +43,51 @@ pub fn send(props: &SendProps) -> Html {
 
     let on_to = {
         let a = to_addr.clone();
-        Callback::from(move |e: InputEvent| {
-            if let Some(i) = e.target_dyn_into::<web_sys::HtmlInputElement>() {
-                a.set(i.value());
+        let e = to_addr_error.clone();
+        Callback::from(move |ev: InputEvent| {
+            if let Some(i) = ev.target_dyn_into::<web_sys::HtmlInputElement>() {
+                let val = i.value();
+                a.set(val.clone());
+                if val.trim().is_empty() {
+                    e.set(String::new());
+                }
             }
         })
     };
 
     let on_amount = {
         let a = amount_ve.clone();
-        Callback::from(move |e: InputEvent| {
-            if let Some(i) = e.target_dyn_into::<web_sys::HtmlInputElement>() {
-                a.set(i.value());
+        let e = amount_error.clone();
+        Callback::from(move |ev: InputEvent| {
+            if let Some(i) = ev.target_dyn_into::<web_sys::HtmlInputElement>() {
+                let val = i.value();
+                a.set(val.clone());
+                if val.trim().is_empty() {
+                    e.set(String::new());
+                } else if ve_to_veni(&val).is_none() {
+                    e.set("Invalid or zero amount".into());
+                } else {
+                    e.set(String::new());
+                }
             }
         })
     };
 
     let on_payment_word_change = {
         let words = payment_secret_words.clone();
+        let err = payment_secret_error.clone();
         move |idx: usize| {
-            let words = words.clone();
-            Callback::from(move |e: InputEvent| {
-                if let Some(input) = e.target_dyn_into::<web_sys::HtmlInputElement>() {
-                    let raw = input.value();
-                    let value = raw.split_whitespace().next().unwrap_or("").trim().to_lowercase();
-                    let mut current = (*words).clone();
-                    if idx < current.len() {
-                        current[idx] = value;
-                        words.set(current);
+            let w = words.clone();
+            let e = err.clone();
+            Callback::from(move |ev: InputEvent| {
+                if let Some(i) = ev.target_dyn_into::<web_sys::HtmlInputElement>() {
+                    let raw = i.value();
+                    let word = raw.split_whitespace().next().unwrap_or("").trim().to_lowercase();
+                    let mut cur = (*w).clone();
+                    if idx < cur.len() {
+                        cur[idx] = word;
+                        w.set(cur);
+                        e.set(String::new());
                     }
                 }
             })
@@ -72,12 +95,12 @@ pub fn send(props: &SendProps) -> Html {
     };
 
     let add_payment_word = {
-        let words = payment_secret_words.clone();
+        let w = payment_secret_words.clone();
         Callback::from(move |_| {
-            let mut current = (*words).clone();
-            if current.len() < 24 {
-                current.push(String::new());
-                words.set(current);
+            let mut cur = (*w).clone();
+            if cur.len() < 24 {
+                cur.push(String::new());
+                w.set(cur);
             }
         })
     };
@@ -85,12 +108,14 @@ pub fn send(props: &SendProps) -> Html {
     let toggle_payment_secret = {
         let show = show_payment_secret.clone();
         let words = payment_secret_words.clone();
-        Callback::from(move |e: InputEvent| {
-            if let Some(input) = e.target_dyn_into::<web_sys::HtmlInputElement>() {
-                let checked = input.checked();
+        let err = payment_secret_error.clone();
+        Callback::from(move |ev: InputEvent| {
+            if let Some(i) = ev.target_dyn_into::<web_sys::HtmlInputElement>() {
+                let checked = i.checked();
                 show.set(checked);
                 if !checked {
                     words.set(vec![String::new(); 1]);
+                    err.set(String::new());
                 }
             }
         })
@@ -101,36 +126,72 @@ pub fn send(props: &SendProps) -> Html {
         let amt = amount_ve.clone();
         let words = payment_secret_words.clone();
         let show_secret = *show_payment_secret;
-        let cb = props.on_send.clone();
+
+        let e_to = to_addr_error.clone();
+        let e_amt = amount_error.clone();
+        let e_ps = payment_secret_error.clone();
+
+        let on_send = on_send.clone();
+        let push_toast = push_toast.clone();
+        let our_receive_address = our_receive_address.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
+            e_to.set(String::new());
+            e_amt.set(String::new());
+            e_ps.set(String::new());
 
-            let to = (*to).clone().trim().to_string();
-            let amt = (*amt).clone();
+            let mut has_error = false;
 
-            if to.is_empty() || amt.is_empty() {
-                return;
+            let to_addr_str = (*to).trim().to_string();
+            let amt_str = (*amt).trim();
+            if to_addr_str.is_empty() {
+                push_toast.emit(("Recipient address required".into(), ToastKind::Error));
+                has_error = true;
             }
 
-            let secret_opt = if show_secret {
-                let filled: Vec<String> = (*words)
-                    .iter()
-                    .cloned()
-                    .filter(|w| !w.is_empty())
-                    .collect();
-                if filled.is_empty() {
-                    None
-                } else {
-                    Some(filled.join(" "))
+            let amount_veni = if amt_str.is_empty() {
+                push_toast.emit(("Amount required".into(), ToastKind::Error));
+                has_error = true;
+                0
+            } else {
+                match ve_to_veni(amt_str) {
+                    Some(v) if v > 0 => v,
+                    _ => {
+                        push_toast.emit(("Invalid amount".into(), ToastKind::Error));
+                        has_error = true;
+                        0
+                    }
                 }
+            };
+
+            let filled: Vec<String> = (*words)
+                .iter()
+                .cloned()
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            let pay_secret_opt = if show_secret && !filled.is_empty() {
+                Some(filled.join(" "))
             } else {
                 None
             };
 
-            if let Some(veni) = ve_to_veni(&amt) {
-                cb.emit((to, veni, secret_opt));
+            if show_secret && filled.is_empty() {
+                push_toast.emit(("Payment secret enabled but empty".into(), ToastKind::Error));
+                has_error = true;
             }
+
+            if has_error {
+                return;
+            }
+
+            if to_addr_str == our_receive_address {
+                push_toast.emit(("Sending to your own wallet".into(), ToastKind::Warning));
+            }
+
+            push_toast.emit(("Sending transaction...".into(), ToastKind::Info));
+            on_send.emit((to_addr_str, amount_veni, pay_secret_opt));
         })
     };
 
@@ -163,27 +224,37 @@ pub fn send(props: &SendProps) -> Html {
                 </p>
             </div>
 
-            <form class="send-form" onsubmit={onsubmit}>
+            <form class="send-form" {onsubmit}>
                 <div class="row">
-                    <input
-                        placeholder="vecno:qrh6mye3..."
-                        value={(*to_addr).clone()}
-                        oninput={on_to}
-                        disabled={props.is_loading || !props.wallet_created}
-                        class="input"
-                    />
+                    <div class="input-wrapper">
+                        <input
+                            placeholder="vecno:qrh6mye3..."
+                            value={(*to_addr).clone()}
+                            oninput={on_to}
+                            disabled={props.is_loading || !props.wallet_created}
+                            class={classes!("input", if !(*to_addr_error).is_empty() { "error" } else { "" })}
+                        />
+                        if !(*to_addr_error).is_empty() {
+                            <p class="status error">{ (*to_addr_error).clone() }</p>
+                        }
+                    </div>
 
-                    <input
-                        type="number"
-                        inputmode="decimal"
-                        placeholder="Amount (VE)"
-                        step="any"
-                        value={(*amount_ve).clone()}
-                        oninput={on_amount}
-                        disabled={props.is_loading || !props.wallet_created}
-                        class="input"
-                    />
+                    <div class="input-wrapper">
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            placeholder="Amount (VE)"
+                            value={(*amount_ve).clone()}
+                            oninput={on_amount}
+                            disabled={props.is_loading || !props.wallet_created}
+                            class={classes!("input", if !(*amount_error).is_empty() { "error" } else { "" })}
+                        />
+                        if !(*amount_error).is_empty() {
+                            <p class="status error">{ (*amount_error).clone() }</p>
+                        }
+                    </div>
                 </div>
+
                 <div class="row centered-row">
                     <div class="mnemonic-toggle">
                         <label class="checkbox-label tooltip-wrapper">
@@ -194,13 +265,13 @@ pub fn send(props: &SendProps) -> Html {
                                 disabled={props.is_loading || !props.wallet_created}
                             />
                             {"Use Payment Secret"}
-
                             <span class="tooltip">
-                                {"Optional – Only required if Payment Secret was set during wallet creation!"}
+                                {"Only if set during wallet creation!"}
                             </span>
                         </label>
                     </div>
                 </div>
+
                 <div class={classes!(
                     "create-payment-secret-section",
                     if *show_payment_secret { "visible" } else { "hidden" }
@@ -239,9 +310,13 @@ pub fn send(props: &SendProps) -> Html {
                                     />
                                 </div>
                             }
-                        }) }
+                        })}
                     </div>
+                    if !(*payment_secret_error).is_empty() {
+                        <p class="status error centered-error">{ (*payment_secret_error).clone() }</p>
+                    }
                 </div>
+
                 <div class="button-group">
                     <button
                         type="submit"
@@ -252,6 +327,7 @@ pub fn send(props: &SendProps) -> Html {
                     </button>
                 </div>
             </form>
+
             { if !props.transaction_status.is_empty() {
                 html! { <p class="status">{ &props.transaction_status }</p> }
             } else { html!{} }}
@@ -259,7 +335,7 @@ pub fn send(props: &SendProps) -> Html {
             { if !props.sent_transactions.is_empty() {
                 html! {
                     <>
-                        <h3 class="send-recent-title">{"Recent Sent Transactions"}</h3>
+                        <h3 class="send-recent-title">{"Recent Sent"}</h3>
                         <div class="send-tx-grid">
                             { for chunks.iter().map(move |chunk| {
                                 let on_tx_click = on_tx_click.clone();

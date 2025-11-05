@@ -159,12 +159,6 @@ pub async fn send_transaction(
             }
         });
 
-    if prv_key_data.payload.is_encrypted() && secret_opt.is_none() {
-        return Err(ErrorResponse {
-            error: "🔐 Wallet is encrypted! You MUST enter your Payment Secret to send.".into(),
-        });
-    }
-
     let signer = Arc::new(Signer::new(
         account.clone(),
         prv_key_data,

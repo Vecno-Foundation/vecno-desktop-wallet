@@ -534,32 +534,44 @@ pub fn app() -> Html {
                     }
                 })).unwrap_or(JsValue::NULL);
 
-                let res = invoke("send_transaction", args).await;
+                let res = match safe_invoke("send_transaction", args).await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        pt.emit((e, ToastKind::Error));
+                        l.set(false);
+                        return;
+                    }
+                };
                 let res_clone = res.clone();
-
                 if let Ok(sent) = serde_wasm_bindgen::from_value::<SentTxInfo>(res) {
                     last.set(sent.txid.clone());
                     last_sent.set(Some(sent.clone()));
-                    pt.emit((format!("Transaction sent! TXID: {}", sent.txid), ToastKind::Success));
+                    pt.emit(("Transaction sent!".into(), ToastKind::Success));
+
                     let mut current = (*sent_transactions).clone();
                     current.insert(0, sent.clone());
-                    if current.len() > 10 { current.truncate(10); }
+                    if current.len() > 2 {
+                        current.truncate(2);
+                    }
                     sent_transactions.set(current);
 
+                    let mut current_txs = (*txs).clone();
                     let optimistic = Transaction {
                         txid: sent.txid.clone(),
                         to_address: sent.to_address.clone(),
                         amount: sent.amount,
                         timestamp: sent.timestamp.clone(),
                     };
-                    let mut current_txs = (*txs).clone();
                     current_txs.insert(0, optimistic);
                     txs.set(current_txs);
                 } else {
                     let msg = get_error_message(res_clone);
                     pt.emit((msg, ToastKind::Error));
                 }
-
+                let list_res = invoke("list_transactions", JsValue::NULL).await;
+                if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(list_res) {
+                    txs.set(list);
+                }
                 if !(*addrs).is_empty() {
                     fetch_balance(addrs.clone(), bal.clone(), l.clone(), pt.clone()).await;
                 }
@@ -722,6 +734,7 @@ pub fn app() -> Html {
                                     sent_transactions={(*sent_transactions).clone()}
                                     on_tx_click={open_modal.clone()}
                                     our_receive_address={recv}
+                                    push_toast={push_toast.clone()} 
                                 />
                             }
                         },
