@@ -1,0 +1,151 @@
+
+.mnemonic-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  max-width: 600px;
+}
+
+.mnemonic-toggle {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.mnemonic-grid {
+  margin: var(--spacing-md) auto;
+}
+
+
+.mnemonic-centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  min-height: calc(100vh - var(--layout-pt) - 2rem);
+}
+
+.mnemonic-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  max-width: 900px; 
+  width: 100%;
+}
+
+.mnemonic-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  text-align: center;
+  margin: 0 0 var(--spacing-xs);
+  line-height: 1.3;
+}
+
+.mnemonic-instruction {
+  font-size: 0.95rem;
+  color: var(--text-dark);
+  text-align: center;
+  max-width: 800px;
+  line-height: 1.4;
+  margin: 0 auto var(--spacing-sm);
+}
+
+.mnemonic-container {
+  width: 100%;
+  max-width: 900px;
+  margin: var(--spacing-sm) auto;
+}
+
+.mnemonic-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--border-radius);
+  padding: 1rem 1.5rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.mnemonic-text {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--spacing-xs) var(--spacing-sm);
+  width: 100%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.75rem;
+  border-radius: var(--border-radius);
+  border: 1px dashed var(--border-color);
+}
+
+.mnemonic-text span {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.mnemonic-text span:hover {
+  background: rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
+}
+
+.mnemonic-text span strong {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  min-width: 2ch;
+}
+
+.mnemonic-grid .word-input {
+  opacity: 1;
+  transition: opacity 0.3s ease, background 0.3s ease;
+}
+
+.mnemonic-grid.extended .word-slot:nth-child(-n+12) .word-input.faded {
+  opacity: 0.45;
+  background: rgba(255, 255, 255, 0.04);
+  pointer-events: auto;
+}
+
+.mnemonic-grid.mode-12 .word-slot:nth-child(n+13) .word-input.disabled-slot {
+  opacity: 0.4;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.03);
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
+.mnemonic-grid.mode-12.extended .word-slot:nth-child(-n+12) .word-input.faded {
+  opacity: 0.6;
+}
+
+.mnemonic-section.hidden {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transition: all 0.3s ease;
+}
+
+.mnemonic-section.visible {
+  max-height: 500px;
+  opacity: 1;
+  transition: all 0.3s ease;
+}

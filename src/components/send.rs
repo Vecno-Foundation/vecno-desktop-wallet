@@ -193,7 +193,7 @@ pub fn send(props: &SendProps) -> Html {
                                 oninput={toggle_payment_secret}
                                 disabled={props.is_loading || !props.wallet_created}
                             />
-                            {"Use Payment Secret (BIP39 Passphrase)"}
+                            {"Use Payment Secret"}
 
                             <span class="tooltip">
                                 {"Optional – Only required if Payment Secret was set during wallet creation!"}
@@ -208,7 +208,7 @@ pub fn send(props: &SendProps) -> Html {
                     <div class="create-mnemonic-toggle">
                         <div style="display:flex;align-items:center;gap:0.5rem;width:100%;justify-content:space-between;">
                             <span class="section-title" style="font-size:1rem;margin:0;">
-                                {"Custom Secret (BIP39 Passphrase)"}
+                                {"Custom Payment Secret"}
                             </span>
                             <button
                                 type="button"

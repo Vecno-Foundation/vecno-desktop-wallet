@@ -411,7 +411,7 @@ pub fn import_wallet(props: &ImportWalletProps) -> Html {
                     )}>
                         <div class="mnemonic-toggle">
                             <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%; justify-content: space-between;">
-                                <span class="section-title" style="font-size: 1rem; margin: 0;">{"Payment Secret (BIP39 Passphrase)"}</span>
+                                <span class="section-title" style="font-size: 1rem; margin: 0;">{"Payment Secret"}</span>
                                 <button
                                     type="button"
                                     class="btn btn-small"

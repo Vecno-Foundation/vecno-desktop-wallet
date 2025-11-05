@@ -67,7 +67,9 @@ pub fn tx_detail_modal(props: &TxDetailProps) -> Html {
                     <p><strong>{"TXID:"}</strong></p>
                     <div class="txid-box">
                         <code class="tx-addr">{ &props.tx.txid }</code>
-                        <button onclick={on_explorer_click} class="btn btn-sm btn-explorer">
+                    </div>
+                    <div class="button-container">
+                        <button onclick={on_explorer_click} class="btn btn-explorer centered">
                             {"Open in Vecnoscan"}
                         </button>
                     </div>

@@ -602,9 +602,24 @@ pub fn app() -> Html {
         <div class="app-container">
             { toast_html }
             <div class="node-status node-status-fixed" aria-live="polite">
-                <div class={classes!("node-indicator", if *node_connected { "connected" } else { "disconnected" })}></div>
-                <span class="node-status-text">{ if *node_connected { "Connected" } else { "Disconnected" } }</span>
-                <span class="node-tooltip">{ &node_info.url }</span>
+                <div class={classes!(
+                    "node-indicator",
+                    if *node_connected { "connected" } else { "disconnected" }
+                )}></div>
+                <span class="node-status-text">
+                    { if *node_connected { "Connected" } else { "Disconnected" } }
+                </span>
+                { 
+                    if !*node_connected {
+                        html! {
+                            <span class="node-tooltip">{"Open, import or create a wallet to connect!"}</span>
+                        }
+                    } else {
+                        html! {
+                            <span class="node-tooltip">{ &node_info.url }</span>
+                        }
+                    }
+                }
             </div>
             <div class="app-title">{ format!("Vecno Wallet v{}", VERSION) }</div>
             <div class="layout">

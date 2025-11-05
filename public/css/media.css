@@ -1,0 +1,190 @@
+@media (max-width: 480px) {
+  .row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+    .mnemonic-box {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .mnemonic-text {
+        text-align: center;
+        padding-bottom: var(--spacing-sm);
+        border-bottom: 1px solid var(--border-color);
+    }
+    .btn-copy {
+        align-self: center;
+    }
+}
+
+
+@media (max-width: 1200px) {
+  .app-title, .node-status-fixed { top: 0.75rem; }
+  .layout { padding-top: 3rem; }
+  .screen-container { padding: 1.5rem; margin: 1rem; }
+  .sidebar { width: 200px; }
+  .nav-item { font-size: 0.95rem; padding: 0.8rem 1.1rem; }
+  .logo.vecno { max-width: 600px; }
+}
+@media (max-width: 768px) {
+  .app-title, .node-status-fixed { top: 0.5rem; }
+  .layout { padding-top: 2.5rem; }
+  h2 { font-size: 1.6rem; }
+  .screen-container { padding: 1rem; margin: 0.5rem; }
+  .logo.vecno { max-width: 400px; }
+  .sidebar { width: 180px; }
+  .nav-item { font-size: 0.9rem; padding: 0.7rem 1rem; }
+  .mnemonic-box { max-height: 120px; font-size: 1rem; }
+}
+
+
+@media (max-width: 768px) {
+  .receive-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+  .receive-card {
+    padding: 1.25rem;
+  }
+  .receive-address {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .receive-centered {
+    padding: var(--spacing-md);
+  }
+  .receive-title {
+    font-size: 1.6rem;
+  }
+  .receive-subtitle {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .mnemonic-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .word-input {
+    padding: 0.45rem 0.35rem;
+    font-size: 0.8rem;
+  }
+  
+  .word-slot::before {
+    font-size: 0.6rem;
+    left: 0.35rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .import-inner {
+    max-width: 540px;
+    gap: var(--spacing-md);
+  }
+  .import-title {
+    font-size: 1.6rem;
+  }
+  .mnemonic-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+
+@media (max-width: 1024px) {
+  .mnemonic-inner,
+  .mnemonic-container {
+    max-width: 800px;
+  }
+  .mnemonic-text {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .mnemonic-inner,
+  .mnemonic-container {
+    max-width: 640px;
+  }
+  .mnemonic-text {
+    grid-template-columns: repeat(4, 1fr);
+    font-size: 0.85rem;
+    padding: 0.65rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .mnemonic-centered {
+    padding: var(--spacing-xs) var(--spacing-md);
+  }
+  .mnemonic-inner,
+  .mnemonic-container {
+    max-width: 100%;
+  }
+  .mnemonic-text {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-xs);
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  .mnemonic-text span {
+    padding: 0.25rem;
+    gap: 0.2rem;
+  }
+  .mnemonic-text span strong {
+    font-size: 0.7rem;
+  }
+  .btn-copy,
+  .btn-prominent {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .import-centered {
+    padding: var(--spacing-md);
+  }
+  .import-inner {
+    max-width: 100%;
+  }
+  .word-input {
+    font-size: 0.8rem;
+    padding: 0.45rem 0.35rem;
+  }
+  .word-slot::before {
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .import-form > .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .tx-grid,
+  .send-tx-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .create-mnemonic-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .create-word-input {
+    padding: 0.45rem 0.35rem;
+    font-size: 0.8rem;
+  }
+  
+  .create-word-slot::before {
+    font-size: 0.6rem;
+    left: 0.35rem;
+  }
+}

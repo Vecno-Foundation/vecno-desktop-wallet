@@ -1,0 +1,67 @@
+
+.home-centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+}
+
+.home-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  max-width: 640px;
+  width: 100%;
+}
+
+.home-title {
+  font-size: 1.3rem;
+  color: var(--text-dark);
+  text-align: center;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.home-loading {
+  font-size: 1.1rem;
+  color: var(--accent-color);
+  margin: 0;
+}
+
+.open-wallet-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+}
+
+.home-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+}
+
+.home-import-link {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-dark);
+  text-align: center;
+}
+
+.home-import-link a {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.button-group {
+  margin: var(--spacing-lg) auto 0;
+}
+
+
+.input:focus {
+  z-index: 1;
+}

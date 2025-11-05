@@ -1,0 +1,124 @@
+
+.import-centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  min-height: calc(100vh - var(--layout-pt) - 4rem);
+}
+
+.import-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  max-width: 640px;
+  width: 100%;
+}
+
+.import-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  text-align: center;
+  margin: 0 0 var(--spacing-md);
+  line-height: 1.5;
+}
+
+.import-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  width: 100%;
+}
+
+.import-form > .row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin: var(--spacing-md) auto 0;
+  max-width: 600px;
+  width: 100%;
+}
+
+.import-create-link {
+  margin: var(--spacing-lg) 0 0;
+  font-size: 1rem;
+  color: var(--text-dark);
+  text-align: center;
+}
+
+.import-create-link a {
+  font-weight: 600;
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: color 0.25s ease;
+}
+
+.import-create-link a:hover {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+
+.word-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.875rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-dark);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.word-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.word-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.word-slot::before {
+  content: attr(data-index);
+  position: absolute;
+  top: -0.5rem;
+  left: 0.4rem;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: var(--surface-dark);
+  padding: 0 0.25rem;
+  z-index: 1;
+  pointer-events: none;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.word-input:not(:placeholder-shown) ~ .word-slot::before,
+.word-input:focus ~ .word-slot::before {
+  opacity: 0.6;
+}
+
+.word-input.error {
+  border-color: var(--error-color);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2);
+}
+
+
+.mnemonic-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  max-width: 600px;
+  width: 100%;
+  margin: var(--spacing-md) auto;
+}

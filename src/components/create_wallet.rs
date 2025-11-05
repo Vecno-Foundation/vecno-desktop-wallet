@@ -218,10 +218,10 @@ pub fn create_wallet(props: &CreateWalletProps) -> Html {
                                     oninput={toggle_payment_secret}
                                     disabled={props.is_loading}
                                 />
-                                {"Use custom secret (BIP39 passphrase)"}
+                                {"Use custom payment secret"}
 
                                 <span class="tooltip">
-                                    {"Optional – adds an extra layer of security. This key must be used when performing a wallet transfer!"}
+                                    {"Optional – adds an extra layer of security. This key must be used when performing wallet transfers!"}
                                 </span>
                             </label>
                         </div>
@@ -233,7 +233,7 @@ pub fn create_wallet(props: &CreateWalletProps) -> Html {
                         <div class="create-mnemonic-toggle">
                             <div style="display:flex;align-items:center;gap:0.5rem;width:100%;justify-content:space-between;">
                                 <span class="section-title" style="font-size:1rem;margin:0;">
-                                    {"Custom Secret (BIP39 Passphrase)"}
+                                    {"Custom Payment Secret"}
                                 </span>
                                 <button
                                     type="button"
