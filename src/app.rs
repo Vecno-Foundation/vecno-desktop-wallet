@@ -7,7 +7,6 @@ use crate::utils::get_error_message;
 use yew::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use wasm_bindgen::prelude::*;
-use web_sys::{BeforeUnloadEvent};
 use log::{error, info, debug};
 
 async fn fetch_balance(
@@ -760,25 +759,56 @@ pub fn app() -> Html {
 #[wasm_bindgen(start)]
 pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Debug));
-    wasm_bindgen_futures::spawn_local(async {
-        let window = web_sys::window().expect("no window");
-        let document = window.document().expect("no document");
-        let keydown = Closure::wrap(Box::new(move |e: web_sys::KeyboardEvent| {
-            let key = e.key();
-            if key == "F5" || key == "F11"
-                || (e.ctrl_key() && key == "r")
-                || (e.meta_key() && key == "r") {
+
+    spawn_local(async {
+        let window = web_sys::window().expect("no global `window`");
+        let document = window.document().expect("no `document`");
+
+        let keydown = Closure::<dyn FnMut(_)>::new(move |e: web_sys::KeyboardEvent| {
+            let key = e.key().to_ascii_lowercase();
+            if key == "f5"
+                || key == "f11"
+                || (e.ctrl_key() && (key == "r" || key == "refresh"))
+                || (e.meta_key() && key == "r")
+            {
                 e.prevent_default();
+                e.stop_propagation();
             }
-        }) as Box<dyn FnMut(_)>);
-        document.add_event_listener_with_callback("keydown", keydown.as_ref().unchecked_ref()).unwrap();
+        });
+        document
+            .add_event_listener_with_callback("keydown", keydown.as_ref().unchecked_ref())
+            .unwrap();
         keydown.forget();
-        let unload = Closure::wrap(Box::new(move |e: BeforeUnloadEvent| {
+
+        let contextmenu = Closure::<dyn FnMut(_)>::new(move |e: web_sys::MouseEvent| {
+            e.prevent_default();
+            e.stop_propagation();
+        });
+        document
+            .add_event_listener_with_callback("contextmenu", contextmenu.as_ref().unchecked_ref())
+            .unwrap();
+        contextmenu.forget();
+
+        if let Ok(tauri) = js_sys::Reflect::get(&window, &"__TAURI__".into()) {
+            if let Ok(window_obj) = js_sys::Reflect::get(&tauri, &"window".into()) {
+                if let Ok(current_fn) = js_sys::Reflect::get(&window_obj, &"getCurrent".into()) {
+                    if js_sys::Function::from(current_fn).is_function() {
+                        let dummy = js_sys::Function::new_no_args("console.log('Reload blocked by Vecno Wallet')");
+                        let _ = js_sys::Reflect::set(&window_obj, &"getCurrent".into(), &dummy);
+                    }
+                }
+            }
+        }
+
+        let beforeunload = Closure::<dyn FnMut(_)>::new(move |e: web_sys::BeforeUnloadEvent| {
             e.prevent_default();
             e.set_return_value("");
-        }) as Box<dyn FnMut(_)>);
-        window.add_event_listener_with_callback("beforeunload", unload.as_ref().unchecked_ref()).unwrap();
-        unload.forget();
+        });
+        window
+            .add_event_listener_with_callback("beforeunload", beforeunload.as_ref().unchecked_ref())
+            .unwrap();
+        beforeunload.forget();
     });
+
     yew::Renderer::<App>::new().render();
 }

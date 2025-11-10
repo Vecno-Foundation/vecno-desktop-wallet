@@ -29,7 +29,20 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self' 'wasm-unsafe-eval'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data:",
+        "connect-src": "'self'",
+        "font-src": "'self' data:",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "frame-src": "'none'",
+        "manifest-src": "'self'",
+        "worker-src": "'self' blob:",
+        "media-src": "'none'"
+      }
     }
   },
   "bundle": {

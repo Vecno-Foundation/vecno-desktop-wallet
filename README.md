@@ -1,7 +1,31 @@
-# Tauri + Yew
 
-This template should help get you started developing with Tauri and Yew.
+# Vecno Wallet
 
-## Recommended IDE Setup
+A secure, fast, and modern cryptocurrency wallet built with **Tauri 2** and **Yew** for the Vecno blockchain. This application provides a native desktop experience with a reactive frontend, leveraging Rust for performance and security.
 
-[VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)    [![Tauri](https://img.shields.io/badge/Tauri-v2-orange)](https://tauri.app)    [![Rust](https://img.shields.io/badge/Rust-1.90%2B-blue)](https://www.rust-lang.org)
+
+
+## ⚡ Quick Start
+
+### Clone the repository
+
+```bash
+git clone https://github.com/vecno-foundation/vecno-wallet.git
+cd vecno-wallet
+```
+
+    
+
+### Run in dev mode
+
+```
+cargo tauri dev
+```
+
+
+### Build .exe and .msi
+
+```
+cargo tauri build
+```
