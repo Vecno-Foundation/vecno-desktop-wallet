@@ -77,7 +77,7 @@ pub fn app() -> Html {
     {
         let intro_done = intro_done.clone();
         use_effect_with((), move |_| {
-            let timeout = gloo_timers::callback::Timeout::new(4000, move || intro_done.set(true));
+            let timeout = gloo_timers::callback::Timeout::new(6000, move || intro_done.set(true));
             || drop(timeout)
         });
     }
@@ -572,7 +572,15 @@ pub fn app() -> Html {
                     txs.set(list);
                 }
                 if !(*addrs).is_empty() {
-                    fetch_balance(addrs.clone(), bal.clone(), l.clone(), pt.clone()).await;
+                    let addrs = addrs.clone();
+                    let bal = bal.clone();
+                    let l = l.clone();
+                    let pt = pt.clone();
+                    
+                    spawn_local(async move {
+                        gloo_timers::future::TimeoutFuture::new(3_000).await;
+                        fetch_balance(addrs, bal, l, pt).await;
+                    });
                 }
                 l.set(false);
             });

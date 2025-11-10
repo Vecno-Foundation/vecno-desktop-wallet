@@ -1,7 +1,8 @@
 .intro-screen {
   position: fixed;
   inset: 0;
-  background: var(--background-dark);
+  background: #0a0a14;
+  background: var(--background-dark, #0a0a14);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -9,48 +10,34 @@
   overflow: hidden;
 }
 
-.logo-wrapper {
-  text-align: center;
-}
+.logo-wrapper { text-align: center; }
 
 .intro-logo {
-  width: 4000px;
+  width: 800px;
   max-width: 100vw;
-  filter: brightness(1.0) contrast(1.0);
+  filter: brightness(1) contrast(1);
+  transform-style: preserve-3d;
+  transform-origin: center center;
 }
 
 @keyframes logoTiltIn {
   from {
-    transform: perspective(1000px) 
-               rotateX(45deg)
-               scale(10) 
-               translateY(-100px);
+    transform: perspective(1000px) rotateX(45deg) scale(10) translateY(-100px);
     opacity: 0;
     filter: blur(3px);
   }
   to {
-    transform: perspective(800px) 
-               rotateX(0deg) 
-               scale(1) 
-               translateY(0);
+    transform: perspective(800px) rotateX(0deg) scale(1) translateY(0);
     opacity: 1;
     filter: blur(0);
   }
 }
 
 @keyframes logoBounceLand {
-  0% {
-    transform: perspective(800px) rotateX(0deg) scale(1) translateY(0);
-  }
-  40% {
-    transform: perspective(800px) rotateX(0deg) scale(1.06) translateY(-18px);
-  }
-  70% {
-    transform: perspective(800px) rotateX(0deg) scale(0.98) translateY(6px);
-  }
-  100% {
-    transform: perspective(800px) rotateX(0deg) scale(1) translateY(0);
-  }
+  0%   { transform: perspective(800px) rotateX(0deg) scale(1) translateY(0); }
+  40%  { transform: perspective(800px) rotateX(0deg) scale(1.06) translateY(-18px); }
+  70%  { transform: perspective(800px) rotateX(0deg) scale(0.98) translateY(6px); }
+  100% { transform: perspective(800px) rotateX(0deg) scale(1) translateY(0); }
 }
 
 @keyframes logoGlow {
@@ -60,11 +47,28 @@
 }
 
 .logo-intro {
-  animation: 
+  animation:
     logoTiltIn     2s   cubic-bezier(0.22, 0.82, 0.35, 1) forwards,
     logoBounceLand 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) 2s forwards,
     logoGlow       3s   ease-in-out 2.0s infinite alternate;
-  
-  transform-style: preserve-3d;
-  transform-origin: center center;
+}
+
+@keyframes subtitleSnapIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2em) scale(0.3);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-2em) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes subtitleSyncBounce {
+  0%   { transform: translateY(-2em) scale(1); }
+  40%  { transform: translateY(-2.5em) scale(1.04); }
+  70%  { transform: translateY(-1.8em) scale(0.98); }
+  100% { transform: translateY(-2em) scale(1); }
 }

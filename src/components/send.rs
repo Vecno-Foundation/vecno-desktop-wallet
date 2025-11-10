@@ -266,7 +266,7 @@ pub fn send(props: &SendProps) -> Html {
                             />
                             {"Use Payment Secret"}
                             <span class="tooltip">
-                                {"Only if set during wallet creation!"}
+                                {"Only use if Payment Secret was set during wallet creation!"}
                             </span>
                         </label>
                     </div>
