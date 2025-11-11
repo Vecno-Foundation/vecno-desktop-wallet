@@ -15,6 +15,8 @@ pub struct SendProps {
     pub on_tx_click: Callback<Transaction>,
     pub our_receive_address: String,
     pub push_toast: Callback<(String, ToastKind)>,
+    #[prop_or(false)]
+    pub payment_secret_required: bool,
 }
 
 #[function_component(Send)]
@@ -22,7 +24,6 @@ pub fn send(props: &SendProps) -> Html {
     let to_addr = use_state(String::new);
     let amount_ve = use_state(String::new);
     let payment_secret_words = use_state(|| vec![String::new(); 1]);
-    let show_payment_secret = use_state(|| false);
     let has_extended_payment = use_state(|| false);
     let to_addr_error = use_state(String::new);
     let amount_error = use_state(String::new);
@@ -30,6 +31,16 @@ pub fn send(props: &SendProps) -> Html {
     let on_send = props.on_send.clone();
     let push_toast = props.push_toast.clone();
     let our_receive_address = props.our_receive_address.clone();
+
+    {
+        let words = payment_secret_words.clone();
+        use_effect_with(props.payment_secret_required, move |required| {
+            if !*required {
+                words.set(vec![String::new(); 1]);
+            }
+            || {}
+        });
+    }
 
     {
         let words = payment_secret_words.clone();
@@ -77,16 +88,16 @@ pub fn send(props: &SendProps) -> Html {
         let words = payment_secret_words.clone();
         let err = payment_secret_error.clone();
         move |idx: usize| {
-            let w = words.clone();
+            let ws = words.clone();
             let e = err.clone();
             Callback::from(move |ev: InputEvent| {
                 if let Some(i) = ev.target_dyn_into::<web_sys::HtmlInputElement>() {
                     let raw = i.value();
                     let word = raw.split_whitespace().next().unwrap_or("").trim().to_lowercase();
-                    let mut cur = (*w).clone();
+                    let mut cur = (*ws).clone();
                     if idx < cur.len() {
                         cur[idx] = word;
-                        w.set(cur);
+                        ws.set(cur);
                         e.set(String::new());
                     }
                 }
@@ -105,27 +116,10 @@ pub fn send(props: &SendProps) -> Html {
         })
     };
 
-    let toggle_payment_secret = {
-        let show = show_payment_secret.clone();
-        let words = payment_secret_words.clone();
-        let err = payment_secret_error.clone();
-        Callback::from(move |ev: InputEvent| {
-            if let Some(i) = ev.target_dyn_into::<web_sys::HtmlInputElement>() {
-                let checked = i.checked();
-                show.set(checked);
-                if !checked {
-                    words.set(vec![String::new(); 1]);
-                    err.set(String::new());
-                }
-            }
-        })
-    };
-
     let onsubmit = {
         let to = to_addr.clone();
         let amt = amount_ve.clone();
         let words = payment_secret_words.clone();
-        let show_secret = *show_payment_secret;
 
         let e_to = to_addr_error.clone();
         let e_amt = amount_error.clone();
@@ -134,6 +128,7 @@ pub fn send(props: &SendProps) -> Html {
         let on_send = on_send.clone();
         let push_toast = push_toast.clone();
         let our_receive_address = our_receive_address.clone();
+        let payment_secret_required = props.payment_secret_required;
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -171,14 +166,14 @@ pub fn send(props: &SendProps) -> Html {
                 .filter(|s| !s.is_empty())
                 .collect();
 
-            let pay_secret_opt = if show_secret && !filled.is_empty() {
+            let pay_secret_opt = if !filled.is_empty() {
                 Some(filled.join(" "))
             } else {
                 None
             };
 
-            if show_secret && filled.is_empty() {
-                push_toast.emit(("Payment secret enabled but empty".into(), ToastKind::Error));
+            if payment_secret_required && filled.is_empty() {
+                push_toast.emit(("Payment Secret is required for this wallet".into(), ToastKind::Error));
                 has_error = true;
             }
 
@@ -255,67 +250,61 @@ pub fn send(props: &SendProps) -> Html {
                     </div>
                 </div>
 
-                <div class="row centered-row">
-                    <div class="mnemonic-toggle">
-                        <label class="checkbox-label tooltip-wrapper">
-                            <input
-                                type="checkbox"
-                                checked={*show_payment_secret}
-                                oninput={toggle_payment_secret}
-                                disabled={props.is_loading || !props.wallet_created}
-                            />
-                            {"Use Payment Secret"}
-                            <span class="tooltip">
-                                {"Only use if Payment Secret was set during wallet creation!"}
-                            </span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class={classes!(
-                    "create-payment-secret-section",
-                    if *show_payment_secret { "visible" } else { "hidden" }
-                )}>
-                    <div class="create-mnemonic-toggle">
-                        <div style="display:flex;align-items:center;gap:0.5rem;width:100%;justify-content:space-between;">
-                            <span class="section-title" style="font-size:1rem;margin:0;">
-                                {"Custom Payment Secret"}
-                            </span>
-                            <button
-                                type="button"
-                                class="btn btn-small create-add-word-btn"
-                                onclick={add_payment_word}
-                                disabled={props.is_loading || !props.wallet_created || (*payment_secret_words).len() >= 24}
-                            >
-                                {"+ Add Word"}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class={classes!(
-                        "create-mnemonic-grid",
-                        if *has_extended_payment { "extended" } else { "" }
-                    )}>
-                        { for (0..(*payment_secret_words).len()).map(|i| {
-                            let on_input = on_payment_word_change(i);
-                            html! {
-                                <div class="create-word-slot" data-index={format!("{}", i + 1)}>
-                                    <input
-                                        type="text"
-                                        placeholder="word"
-                                        value={(*payment_secret_words)[i].clone()}
-                                        oninput={on_input}
-                                        class="create-word-input"
-                                        disabled={props.is_loading || !props.wallet_created}
-                                    />
+                { if props.payment_secret_required {
+                    html! {
+                        <>
+                            <div class="row centered-row">
+                                <div class="mnemonic-toggle">
+                                    <label class="checkbox-label tooltip-wrapper">
+                                        <span class="section-title" style="font-size:1rem;margin:0;">
+                                            {"Payment Secret (Required)"}
+                                        </span>
+                                        <span class="tooltip">{"Enter the payment secret set during wallet creation"}</span>
+                                    </label>
                                 </div>
-                            }
-                        })}
-                    </div>
-                    if !(*payment_secret_error).is_empty() {
-                        <p class="status error centered-error">{ (*payment_secret_error).clone() }</p>
+                            </div>
+
+                            <div class="create-payment-secret-section visible">
+                                <div class="create-mnemonic-toggle">
+                                    <div style="display:flex;align-items:center;gap:0.5rem;width:100%;justify-content:space-between;">
+                                        <button
+                                            type="button"
+                                            class="btn btn-small create-add-word-btn"
+                                            onclick={add_payment_word}
+                                            disabled={props.is_loading || !props.wallet_created || (*payment_secret_words).len() >= 24}
+                                        >
+                                            {"+ Add Word"}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class={classes!(
+                                    "create-mnemonic-grid",
+                                    if *has_extended_payment { "extended" } else { "" }
+                                )}>
+                                    { for (0..(*payment_secret_words).len()).map(|i| {
+                                        let on_input = on_payment_word_change(i);
+                                        html! {
+                                            <div class="create-word-slot" data-index={format!("{}", i + 1)}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="word"
+                                                    value={(*payment_secret_words)[i].clone()}
+                                                    oninput={on_input}
+                                                    class="create-word-input"
+                                                    disabled={props.is_loading || !props.wallet_created}
+                                                />
+                                            </div>
+                                        }
+                                    })}
+                                </div>
+                                if !(*payment_secret_error).is_empty() {
+                                    <p class="status error centered-error">{ (*payment_secret_error).clone() }</p>
+                                }
+                            </div>
+                        </>
                     }
-                </div>
+                } else { html!{} }}
 
                 <div class="button-group">
                     <button

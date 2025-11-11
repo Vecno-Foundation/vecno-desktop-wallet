@@ -75,7 +75,8 @@ async fn main() {
             checks::list_wallets,
             get_transactions::list_transactions,
             wallet::open::open_wallet,
-            wallet::close::close_wallet
+            wallet::close::close_wallet,
+            checks::wallet_needs_payment_secret
         ])
         .run(tauri::generate_context!())
         .expect("Error running Vecno Wallet App");

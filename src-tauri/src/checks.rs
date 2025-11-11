@@ -7,6 +7,8 @@ use vecno_wallet_core::storage::local::{Storage, WalletStorage};
 use std::path::Path;
 use rand::Rng;
 use bip39;
+use vecno_wallet_core::storage::keydata::PrvKeyDataVariant;
+use futures_lite::StreamExt;
 
 #[command]
 pub async fn is_wallet_open(state: State<'_, AppState>) -> Result<bool, ErrorResponse> {
@@ -160,4 +162,52 @@ pub async fn verify_wallet_password(
 
     info!("Password verification successful for wallet: {}", filename);
     Ok(())
+}
+
+#[command]
+pub async fn wallet_needs_payment_secret(state: State<'_, AppState>) -> Result<bool, ErrorResponse> {
+    let wallet_guard = state.wallet.lock().await;
+    let wallet = wallet_guard.as_ref().ok_or(ErrorResponse { error: "No wallet".into() })?;
+
+    let wallet_secret_guard = state.wallet_secret.lock().await;
+    let wallet_secret = wallet_secret_guard.as_ref().ok_or(ErrorResponse { error: "Wallet secret missing".into() })?;
+
+    let store = wallet.store();
+    let prv_store = store.as_prv_key_data_store()
+        .map_err(|e| ErrorResponse { error: e.to_string() })?;
+
+    let mut iter = prv_store.iter().await
+        .map_err(|e| ErrorResponse { error: e.to_string() })?;
+
+    while let Some(info) = iter.try_next().await
+        .map_err(|e| ErrorResponse { error: e.to_string() })?
+    {
+        let encrypted = match prv_store.load_key_data(wallet_secret, &info.id).await {
+            Ok(Some(e)) => e,
+            Ok(None) => continue,
+            Err(e) => {
+                error!("Failed to load key data (ID: {}): {}", info.id, e);
+                continue;
+            }
+        };
+
+        let decrypted = match encrypted.payload.decrypt(Some(wallet_secret)) {
+            Ok(d) => d,
+            Err(e) => {
+                error!("Failed to decrypt key data (ID: {}): {}", info.id, e);
+                continue;
+            }
+        };
+
+        let is_mnemonic = matches!(*decrypted.as_variant(), PrvKeyDataVariant::Mnemonic(_));
+        info!("Key ID: {} | Is Mnemonic: {}", info.id, is_mnemonic);
+
+        if is_mnemonic {
+            info!("wallet_needs_payment_secret: FALSE (mnemonic found → no payment secret needed)");
+            return Ok(false);
+        }
+    }
+
+    info!("wallet_needs_payment_secret: TRUE (no mnemonic → payment secret required)");
+    Ok(true)
 }

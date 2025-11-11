@@ -96,6 +96,7 @@ pub fn app() -> Html {
     let show_modal = use_state(|| false);
     let last_sent = use_state(|| Option::<SentTxInfo>::None);
     let sent_transactions = use_state(|| Vec::<SentTxInfo>::new());
+    let payment_secret_required = use_state(|| false);
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
     {
@@ -108,6 +109,7 @@ pub fn app() -> Html {
             || {}
         });
     }
+
     {
         let node_connected = node_connected.clone();
         let node_info = node_info.clone();
@@ -143,6 +145,7 @@ pub fn app() -> Html {
             || {}
         });
     }
+
     {
         let screen = screen.clone();
         let available_wallets = available_wallets.clone();
@@ -169,12 +172,15 @@ pub fn app() -> Html {
             || {}
         });
     }
+
     {
         let screen = screen.clone();
         let wallet_created = wallet_created.clone();
         let addresses = addresses.clone();
         let is_loading = is_loading.clone();
         let push_toast = push_toast.clone();
+        let payment_secret_required = payment_secret_required.clone();
+
         use_effect_with((screen.clone(), wallet_created.clone()), move |(s, created)| {
             if **created && matches!(**s, Screen::Wallet | Screen::Receive | Screen::Send | Screen::Transactions) {
                 let addr = addresses.clone();
@@ -182,31 +188,51 @@ pub fn app() -> Html {
                 let push_toast = push_toast.clone();
                 let scr = screen.clone();
                 let wc = wallet_created.clone();
+                let req = payment_secret_required.clone();
+
                 spawn_local(async move {
                     loading.set(true);
-                    let open = invoke("is_wallet_open", JsValue::NULL).await;
-                    let open_msg = get_error_message(open.clone());
-                    if open_msg.contains("false") {
+
+                    let open_res = invoke("is_wallet_open", JsValue::NULL).await;
+                    if !open_res.as_bool().unwrap_or(false) {
                         push_toast.emit(("Wallet not open".into(), ToastKind::Error));
                         scr.set(Screen::Home);
                         wc.set(false);
                         loading.set(false);
                         return;
                     }
-                    let res = invoke("get_address", JsValue::NULL).await;
-                    let msg = get_error_message(res.clone());
-                    if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<WalletAddress>>(res) {
-                        addr.set(list);
+
+                    let addr_res = invoke("get_address", JsValue::NULL).await;
+                    let addr_msg = get_error_message(addr_res.clone());
+                    if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<WalletAddress>>(addr_res) {
+                        if list.is_empty() {
+                            push_toast.emit(("No addresses loaded".into(), ToastKind::Error));
+                            addr.set(vec![]);
+                        } else {
+                            addr.set(list);
+                        }
                     } else {
-                        push_toast.emit((msg, ToastKind::Error));
+                        push_toast.emit((addr_msg, ToastKind::Error));
                         addr.set(vec![]);
+                        loading.set(false);
+                        return;
                     }
+
+                    let needs_res = invoke("wallet_needs_payment_secret", JsValue::NULL).await;
+                    let needs = needs_res.as_bool().unwrap_or(false);
+                    info!("Payment secret required: {}", needs);
+                    req.set(needs);
+
                     loading.set(false);
                 });
+            } else if !**created {
+                payment_secret_required.set(false);
+                addresses.set(vec![]);
             }
             || {}
         });
     }
+
     {
         let addresses = addresses.clone();
         let balance = balance.clone();
@@ -226,6 +252,7 @@ pub fn app() -> Html {
             || {}
         });
     }
+
     {
         let screen = screen.clone();
         let transactions = transactions.clone();
@@ -284,11 +311,13 @@ pub fn app() -> Html {
         let nc = node_connected.clone();
         let ni = node_info.clone();
         let l = is_loading.clone();
+        let req = payment_secret_required.clone();
         Callback::from(move |_| {
             scr.set(Screen::Home);
             wc.set(false);
             nc.set(false);
             ni.set(NodeInfo { url: "".into() });
+            req.set(false);
             let l = l.clone();
             spawn_local(async move {
                 l.set(true);
@@ -741,7 +770,8 @@ pub fn app() -> Html {
                                     sent_transactions={(*sent_transactions).clone()}
                                     on_tx_click={open_modal.clone()}
                                     our_receive_address={recv}
-                                    push_toast={push_toast.clone()} 
+                                    push_toast={push_toast.clone()}
+                                    payment_secret_required={*payment_secret_required}
                                 />
                             }
                         },
