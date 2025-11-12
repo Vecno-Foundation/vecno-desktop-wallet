@@ -225,7 +225,7 @@ pub fn create_wallet(props: &CreateWalletProps) -> Html {
                         </div>
                     </div>
                     <div class={classes!(
-                        "create-payment-secret-section",
+                        "mnemonic-section",
                         if *show_payment_secret { "visible" } else { "hidden" }
                     )}>
                         <div class="create-mnemonic-toggle">
@@ -235,7 +235,7 @@ pub fn create_wallet(props: &CreateWalletProps) -> Html {
                                 </span>
                                 <button
                                     type="button"
-                                    class="btn btn-small create-add-word-btn"
+                                    class="btn btn-small"
                                     onclick={add_payment_word}
                                     disabled={props.is_loading || (*payment_secret_words).len() >= 24}
                                 >

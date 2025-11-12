@@ -264,12 +264,12 @@ pub fn send(props: &SendProps) -> Html {
                                 </div>
                             </div>
 
-                            <div class="create-payment-secret-section visible">
+                            <div class="mnemonic-section visible">
                                 <div class="create-mnemonic-toggle">
                                     <div style="display:flex;align-items:center;gap:0.5rem;width:100%;justify-content:space-between;">
                                         <button
                                             type="button"
-                                            class="btn btn-small create-add-word-btn"
+                                            class="btn btn-small"
                                             onclick={add_payment_word}
                                             disabled={props.is_loading || !props.wallet_created || (*payment_secret_words).len() >= 24}
                                         >
