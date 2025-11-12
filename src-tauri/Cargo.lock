@@ -6298,8 +6298,8 @@ checksum = "943ce29a8a743eb10d6082545d861b24f9d1b160b7d741e0f2cdf726bec909c5"
 
 [[package]]
 name = "vecno-addresses"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "borsh",
  "js-sys",
@@ -6313,8 +6313,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-bip32"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "borsh",
  "bs58",
@@ -6340,8 +6340,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-consensus-client"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "ahash",
  "cfg-if 1.0.4",
@@ -6369,8 +6369,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-consensus-core"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -6405,8 +6405,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-consensus-notify"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "async-channel 2.5.0",
  "cfg-if 1.0.4",
@@ -6425,8 +6425,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-consensus-wasm"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "cfg-if 1.0.4",
  "faster-hex",
@@ -6450,8 +6450,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-core"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "anyhow",
  "cfg-if 1.0.4",
@@ -6470,8 +6470,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-hashes"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "blake3",
  "borsh",
@@ -6489,8 +6489,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-index-core"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
@@ -6509,8 +6509,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-math"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "borsh",
  "faster-hex",
@@ -6529,16 +6529,16 @@ dependencies = [
 
 [[package]]
 name = "vecno-merkle"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "vecno-hashes",
 ]
 
 [[package]]
 name = "vecno-metrics-core"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "async-trait",
  "borsh",
@@ -6554,8 +6554,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-mining-errors"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "thiserror 1.0.69",
  "vecno-consensus-core",
@@ -6563,8 +6563,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-muhash"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "rand_chacha 0.3.1",
  "serde",
@@ -6574,8 +6574,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-notify"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
@@ -6606,8 +6606,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-rpc-core"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
@@ -6648,8 +6648,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-rpc-macros"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro-error",
@@ -6661,8 +6661,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-txscript"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "blake3",
  "borsh",
@@ -6692,8 +6692,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-txscript-errors"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "secp256k1",
  "thiserror 1.0.69",
@@ -6701,8 +6701,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-utils"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "arc-swap",
  "async-channel 2.5.0",
@@ -6765,8 +6765,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-wallet-core"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "aes",
  "ahash",
@@ -6844,8 +6844,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-wallet-keys"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "async-trait",
  "borsh",
@@ -6877,8 +6877,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-wallet-macros"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "convert_case 0.5.0",
  "proc-macro-error",
@@ -6891,8 +6891,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-wallet-pskt"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "bincode",
  "derive_builder",
@@ -6920,8 +6920,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-wasm-core"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "faster-hex",
  "hexplay",
@@ -6932,8 +6932,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-wrpc-client"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "async-std",
  "async-trait",
@@ -6969,8 +6969,8 @@ dependencies = [
 
 [[package]]
 name = "vecno-wrpc-wasm"
-version = "1.0.1"
-source = "git+https://github.com/Yooshikii/testnet1.git?branch=main#16e0227b583496e9798591c77a0451838e4acfad"
+version = "1.0.0"
+source = "git+https://github.com/Vecno-Foundation/vecnod.git?branch=master#d2e4f65ac48e29d540ba869f097fed9d3d57a27d"
 dependencies = [
  "ahash",
  "async-std",
