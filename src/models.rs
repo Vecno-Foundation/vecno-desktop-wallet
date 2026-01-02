@@ -22,6 +22,12 @@ pub struct ImportWalletArgs {
     pub filename: String,
 }
 
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct BalanceResponse {
+    pub balance: u64,
+    pub timestamp: i64,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct GetBalanceArgs {
     pub address: String,

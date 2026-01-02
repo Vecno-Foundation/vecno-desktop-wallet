@@ -2,9 +2,19 @@ use crate::state::{AppState, ErrorResponse};
 use tauri::{command, State};
 use log::info;
 use vecno_rpc_core::RpcUtxosByAddressesEntry;
+use serde::{Deserialize, Serialize};
+use chrono::Utc;
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BalanceResponse {
+    pub balance: u64,
+    pub timestamp: i64,
+}
 
 #[command]
-pub async fn get_balance(state: State<'_, AppState>) -> Result<String, ErrorResponse> {
+pub async fn get_balance(state: State<'_, AppState>) -> Result<BalanceResponse, ErrorResponse> {
+    info!("=== BALANCE REFRESH STARTED ===");
+
     let wallet_guard = state.wallet.lock().await;
     let wallet = wallet_guard
         .as_ref()
@@ -14,6 +24,7 @@ pub async fn get_balance(state: State<'_, AppState>) -> Result<String, ErrorResp
         .clone();
 
     if !wallet.is_open() {
+        info!("=== BALANCE REFRESH FAILED: Wallet is not open ===");
         return Err(ErrorResponse {
             error: "Wallet is not open".into(),
         });
@@ -81,5 +92,12 @@ pub async fn get_balance(state: State<'_, AppState>) -> Result<String, ErrorResp
         info!("   • Largest UTXO  : {} VE", max);
     }
 
-    Ok(total_balance.to_string())
+    let timestamp = Utc::now().timestamp();
+
+    info!("=== BALANCE REFRESH COMPLETED: {} VE at {} ===", total_balance, timestamp);
+
+    Ok(BalanceResponse {
+        balance: total_balance,
+        timestamp,
+    })
 }

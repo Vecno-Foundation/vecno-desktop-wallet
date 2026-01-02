@@ -7,13 +7,16 @@ use crate::utils::get_error_message;
 use yew::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use wasm_bindgen::prelude::*;
-use log::{error, info, debug};
+use log::{error, info};
+use gloo_timers::callback::Interval;
+use js_sys::Date;
 
 async fn fetch_balance(
     addresses: UseStateHandle<Vec<WalletAddress>>,
     balance: UseStateHandle<String>,
     is_loading: UseStateHandle<bool>,
     push_toast: Callback<(String, ToastKind)>,
+    last_refreshed: UseStateHandle<String>,
 ) {
     if (*addresses).is_empty() {
         error!("No valid address found for balance query");
@@ -22,14 +25,19 @@ async fn fetch_balance(
         is_loading.set(false);
         return;
     }
+
     let address = (*addresses)
         .first()
         .map(|addr| addr.receive_address.clone())
         .unwrap_or_default();
+
     info!("Querying balance for address: {}", address);
+
     let args = serde_wasm_bindgen::to_value(&GetBalanceArgs { address: address.clone() })
         .unwrap_or(JsValue::NULL);
+
     let result = invoke("get_balance", args.clone()).await;
+
     let msg = get_error_message(result.clone());
     if msg.contains("error") || msg.contains("Error") || msg.contains("failed") || msg.contains("Failed") {
         push_toast.emit((msg, ToastKind::Error));
@@ -37,27 +45,29 @@ async fn fetch_balance(
         is_loading.set(false);
         return;
     }
-    if let Some(balance_str) = result.as_string() {
-        debug!("Parsed balance response for {}: {}", address, balance_str);
-        match balance_str.parse::<u64>() {
-            Ok(v) => {
-                info!("Balance for address {}: {} VE", address, v);
-                balance.set(format_balance(v));
-                is_loading.set(false);
-                return;
-            }
-            Err(e) => {
-                error!("Failed to parse balance: {}", e);
-                push_toast.emit((format!("Balance parse error: {}", e), ToastKind::Error));
-                balance.set(format!("Balance: Error - {}", e));
-                is_loading.set(false);
-                return;
-            }
+
+    match serde_wasm_bindgen::from_value::<BalanceResponse>(result) {
+        Ok(response) => {
+            info!("Balance: {} VE (from backend)", response.balance);
+            balance.set(format_balance(response.balance));
+
+            let js_date = Date::new(&js_sys::Number::from(response.timestamp as f64 * 1000.0));
+            let hours = js_date.get_hours();
+            let minutes = js_date.get_minutes();
+            let seconds = js_date.get_seconds();
+
+            let time_str = format!("Last updated: {:02}:{:02}:{:02}", hours, minutes, seconds);
+            last_refreshed.set(time_str);
+
+            is_loading.set(false);
+        }
+        Err(e) => {
+            error!("Failed to parse structured balance response: {:?}", e);
+            push_toast.emit(("Failed to parse balance response".into(), ToastKind::Error));
+            balance.set("Balance: unavailable".into());
+            is_loading.set(false);
         }
     }
-    push_toast.emit((msg, ToastKind::Error));
-    balance.set("Balance: unavailable".into());
-    is_loading.set(false);
 }
 
 #[function_component(App)]
@@ -97,6 +107,10 @@ pub fn app() -> Html {
     let last_sent = use_state(|| Option::<SentTxInfo>::None);
     let sent_transactions = use_state(|| Vec::<SentTxInfo>::new());
     let payment_secret_required = use_state(|| false);
+
+    // State for last refreshed timestamp
+    let last_refreshed = use_state(|| "Last updated: Never".to_string());
+
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
     {
@@ -233,23 +247,86 @@ pub fn app() -> Html {
         });
     }
 
+    // Initial balance fetch
     {
         let addresses = addresses.clone();
         let balance = balance.clone();
         let is_loading = is_loading.clone();
         let push_toast = push_toast.clone();
+        let last_refreshed = last_refreshed.clone();
+
         use_effect_with(addresses.clone(), move |addrs| {
             if !addrs.is_empty() {
                 let a = addrs.clone();
                 let b = balance.clone();
                 let l = is_loading.clone();
                 let pt = push_toast.clone();
+                let lr = last_refreshed.clone();
                 spawn_local(async move {
                     l.set(true);
-                    fetch_balance(a, b, l, pt).await;
+                    fetch_balance(a, b, l, pt, lr).await;
                 });
             }
             || {}
+        });
+    }
+
+    {
+        let addresses = addresses.clone();
+        let balance = balance.clone();
+        let is_loading = is_loading.clone();
+        let push_toast = push_toast.clone();
+        let last_refreshed = last_refreshed.clone();
+        let wallet_created = wallet_created.clone();
+
+        let interval_handle = use_state(|| Option::<gloo_timers::callback::Interval>::None);
+
+        let interval_handle_clone = interval_handle.clone();
+
+        use_effect_with((wallet_created.clone(), addresses.clone()), move |(created, addrs)| {
+            let cleanup = move || {
+                interval_handle_clone.set(None);
+            };
+
+            if **created && !addrs.is_empty() {
+                let a = addrs.clone();
+                let b = balance.clone();
+                let l = is_loading.clone();
+                let pt = push_toast.clone();
+                let lr = last_refreshed.clone();
+                let interval_handle = interval_handle.clone();
+
+                spawn_local({
+                    let a = a.clone();
+                    let b = b.clone();
+                    let l = l.clone();
+                    let pt = pt.clone();
+                    let lr = lr.clone();
+                    async move {
+                        l.set(true);
+                        fetch_balance(a, b, l, pt, lr).await;
+                    }
+                });
+
+                let interval = Interval::new(30_000, move || {
+                    let a = a.clone();
+                    let b = b.clone();
+                    let l = l.clone();
+                    let pt = pt.clone();
+                    let lr = lr.clone();
+                    spawn_local(async move {
+                        l.set(true);
+                        fetch_balance(a, b, l, pt, lr).await;
+                    });
+                });
+
+                interval_handle.set(Some(interval));
+            } else {
+                balance.set(String::new());
+                last_refreshed.set("Last updated: Never".to_string());
+            }
+
+            cleanup
         });
     }
 
@@ -529,6 +606,8 @@ pub fn app() -> Html {
         let pt = push_toast.clone();
         let last_sent = last_sent.clone();
         let sent_transactions = sent_transactions.clone();
+        let last_refreshed = last_refreshed.clone();
+
         Callback::from(move |(to_addr, amount_veni, payment_secret): (String, u64, Option<String>)| {
             if to_addr.is_empty() {
                 pt.emit(("Recipient address is required".into(), ToastKind::Error));
@@ -551,6 +630,7 @@ pub fn app() -> Html {
             let pt = pt.clone();
             let last_sent = last_sent.clone();
             let sent_transactions = sent_transactions.clone();
+            let last_refreshed = last_refreshed.clone();
 
             spawn_local(async move {
                 l.set(true);
@@ -605,10 +685,11 @@ pub fn app() -> Html {
                     let bal = bal.clone();
                     let l = l.clone();
                     let pt = pt.clone();
-                    
+                    let last_refreshed = last_refreshed.clone();
+
                     spawn_local(async move {
                         gloo_timers::future::TimeoutFuture::new(3_000).await;
-                        fetch_balance(addrs, bal, l, pt).await;
+                        fetch_balance(addrs, bal, l, pt, last_refreshed).await;
                     });
                 }
                 l.set(false);
@@ -737,6 +818,7 @@ pub fn app() -> Html {
                             <Dashboard
                                 balance={(*balance).clone()}
                                 is_loading={*is_loading}
+                                last_refreshed={(*last_refreshed).clone()}
                             />
                         },
                         Screen::Receive => html! {

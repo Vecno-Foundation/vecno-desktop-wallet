@@ -4,6 +4,7 @@ use yew::prelude::*;
 pub struct DashboardProps {
     pub balance: String,
     pub is_loading: bool,
+    pub last_refreshed: String,
 }
 
 #[function_component(Dashboard)]
@@ -18,6 +19,9 @@ pub fn dashboard(props: &DashboardProps) -> Html {
                     } else {
                         &props.balance
                     }}
+                </p>
+                <p class="last-updated" aria-live="polite">
+                    { &props.last_refreshed }
                 </p>
             </div>
             <p>{"Manage your Vecno wallet: check balance and view addresses."}</p>
