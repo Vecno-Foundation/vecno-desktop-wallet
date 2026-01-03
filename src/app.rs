@@ -963,7 +963,7 @@ pub fn app() -> Html {
                                     <>
                                         <div class="screen-container home-centered" role="main">
                                             <div class="home-inner">
-                                                <p class="home-title">{"Wallet is currently open"}</p>
+                                                <p class="home-title">{"A wallet is currently open."}</p>
                                                 <button onclick={switch_wallet_callback} class="btn btn-primary btn-large">
                                                     {"Switch Wallet"}
                                                 </button>
