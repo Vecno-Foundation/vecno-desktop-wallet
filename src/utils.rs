@@ -170,3 +170,60 @@ pub async fn verify_password(filename: &str, secret: &str) -> Result<(), String>
 
     Ok(())
 }
+
+pub fn format_with_commas(n: u64) -> String {
+    let s = n.to_string();
+    let chars: Vec<char> = s.chars().collect();
+    let len = chars.len();
+    let mut result = String::new();
+
+    for (i, ch) in chars.iter().enumerate() {
+        if i > 0 && (len - i) % 3 == 0 {
+            result.push(',');
+        }
+        result.push(*ch);
+    }
+    result
+}
+
+pub fn format_hashrate(hashrate_mh: f64) -> String {
+    let n = hashrate_mh;
+
+    if n < 1_000.0 {
+        format!("{:.2} MH/s", n)
+    } else if n < 1_000_000.0 {
+        format!("{:.2} GH/s", n / 1_000.0)
+    } else if n < 1_000_000_000.0 {
+        format!("{:.2} TH/s", n / 1_000_000.0)
+    } else if n < 1_000_000_000_000.0 {
+        format!("{:.2} PH/s", n / 1_000_000_000.0)
+    } else {
+        format!("{:.2} EH/s", n / 1_000_000_000_000.0)
+    }
+}
+
+pub fn format_difficulty(diff: f64) -> String {
+    if diff <= 0.0 {
+        return "N/A".to_string();
+    }
+
+    let units = ["", "K", "M", "G", "T", "P", "E"];
+    let mut value = diff;
+    let mut index = 0;
+
+    while value >= 1000.0 && index < units.len() - 1 {
+        value /= 1000.0;
+        index += 1;
+    }
+
+    let mut num_str = format!("{:.2}", value);
+    num_str = num_str.trim_end_matches('0').to_string();
+    num_str = num_str.trim_end_matches('.').to_string();
+
+    let unit = units[index];
+    if unit.is_empty() {
+        num_str
+    } else {
+        format!("{} {}", num_str, unit)
+    }
+}
