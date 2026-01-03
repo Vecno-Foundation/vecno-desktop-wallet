@@ -43,10 +43,7 @@ pub async fn is_node_connected(state: State<'_, AppState>) -> Result<bool, Error
                 e
             );
             Err(ErrorResponse {
-                error: format!(
-                    "Node connection failed: {}. Ensure Resolver is reachable or run a local node.",
-                    e
-                ),
+                error: "Failed to connect to Vecno node. Check your internet connection or try again later.".to_string(),
             })
         }
     }
@@ -89,10 +86,7 @@ pub async fn get_node_info(state: State<'_, AppState>) -> Result<NodeInfo, Error
                 e
             );
             Err(ErrorResponse {
-                error: format!(
-                    "Failed to retrieve node info: {}. Ensure seed.vecnoscan.org is reachable.",
-                    e
-                ),
+                error: "Failed to connect to Vecno node. Check your internet connection or try again later.".to_string(),
             })
         }
     }

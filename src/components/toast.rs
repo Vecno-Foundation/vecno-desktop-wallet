@@ -1,4 +1,3 @@
-
 use yew::prelude::*;
 use gloo_timers::callback::Timeout;
 use crate::models::ToastKind;
@@ -38,6 +37,7 @@ pub fn use_toast() -> (
     Html,
 ) {
     let toast = use_state(|| None::<(String, ToastKind)>);
+
     {
         let toast = toast.clone();
         use_effect_with(toast.clone(), move |t| {
@@ -63,15 +63,12 @@ pub fn use_toast() -> (
         })
     };
 
-    let overlay_click = clear_toast.clone();
-
     let render_toast = {
         let toast = toast.clone();
         let clear = clear_toast.clone();
         html! {
             <div class="toast-container">
                 if let Some((msg, kind)) = &*toast {
-                    <div class="toast-overlay" onclick={overlay_click.reform(|_| ())}></div>
                     <div class="toast-center">
                         <Toast message={msg.clone()} kind={kind.clone()} on_close={clear.reform(|_| ())} />
                     </div>

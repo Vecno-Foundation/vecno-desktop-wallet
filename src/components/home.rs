@@ -60,11 +60,18 @@ pub fn home(props: &HomeProps) -> Html {
                                         <option value={w.path.clone()}>{ &w.name }</option>
                                     })}
                                 </select>
-                                <input type="password" placeholder="Enter wallet password"
-                                       class="input" oninput={on_password_change} />
+                                <input
+                                    type="password"
+                                    placeholder="Enter wallet password"
+                                    class="input"
+                                    oninput={on_password_change}
+                                />
                             </div>
-                            <button type="submit" disabled={props.is_loading}
-                                    class={classes!("btn","btn-primary", if props.is_loading {"loading"} else {""})}>
+                            <button
+                                type="submit"
+                                disabled={props.is_loading}
+                                class={classes!("btn","btn-primary", if props.is_loading {"loading"} else {""})}
+                            >
                                 {"Open Wallet"}
                             </button>
                         </form>
@@ -72,7 +79,9 @@ pub fn home(props: &HomeProps) -> Html {
                 } else { html!{} }}
 
                 <div class="home-actions">
-                    <button onclick={props.on_create.clone()} class="btn btn-primary">{"Create New Wallet"}</button>
+                    <button onclick={props.on_create.clone()} class="btn btn-primary">
+                        {"Create New Wallet"}
+                    </button>
                     <p class="home-import-link">
                         {"Have a mnemonic? "}
                         <a href="#" onclick={props.on_import.clone()}>{"Import Wallet"}</a>

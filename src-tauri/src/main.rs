@@ -76,6 +76,7 @@ async fn main() {
             get_transactions::list_transactions,
             wallet::open::open_wallet,
             wallet::close::close_wallet,
+            wallet::switch::switch_wallet,
             checks::wallet_needs_payment_secret
         ])
         .run(tauri::generate_context!())

@@ -86,7 +86,12 @@ pub async fn import_wallets(
             ..Default::default()
         };
         wrpc_client.connect(Some(options)).await
-            .map_err(|e| ErrorResponse { error: format!("Node connect failed: {}", e) })?;
+            .map_err(|e| {
+                error!("Node connection failed: {}", e);
+                ErrorResponse {
+                    error: "Failed to connect to Vecno node. Check your internet connection or try again later.".into()
+                }
+            })?;
     } else {
         return Err(ErrorResponse { error: "No wRPC client".into() });
     }

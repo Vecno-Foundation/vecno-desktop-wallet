@@ -1,6 +1,6 @@
 use crate::models::OpenWalletInput;
 use crate::state::{AppState, ErrorResponse};
-use log::info;
+use log::{info, error};
 use std::path::Path;
 use std::sync::Arc;
 use tauri::{command, State};
@@ -95,7 +95,12 @@ pub async fn open_wallet(
         };
 
         wrpc.connect(Some(opts)).await
-            .map_err(|e| ErrorResponse { error: format!("Failed to connect to node: {}", e) })?;
+            .map_err(|e| {
+                error!("Node connection failed: {}", e);
+                ErrorResponse {
+                    error: "Failed to connect to Vecno node. Check your internet connection or try again later.".into()
+                }
+            })?;
         info!("Connected to node");
     } else {
         return Err(ErrorResponse { error: "No wRPC client available".into() });

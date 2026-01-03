@@ -1,7 +1,7 @@
 use crate::models::CreateWalletInput;
 use crate::state::{AppState, ErrorResponse};
 use bip39::{Language, Mnemonic};
-use log::info;
+use log::{info, error};
 use rand::RngCore;
 use std::sync::Arc;
 use tauri::{command, State};
@@ -94,7 +94,12 @@ pub async fn create_wallet(
         };
 
         wrpc.connect(Some(opts)).await
-            .map_err(|e| ErrorResponse { error: format!("Node connect failed: {}", e) })?;
+            .map_err(|e| {
+                error!("Node connection failed: {}", e);
+                ErrorResponse {
+                    error: "Failed to connect to Vecno node. Check your internet connection or try again later.".into()
+                }
+            })?;
         info!("Connected to node");
     } else {
         return Err(ErrorResponse { error: "No wRPC client".into() });

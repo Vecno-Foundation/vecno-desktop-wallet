@@ -107,8 +107,6 @@ pub fn app() -> Html {
     let last_sent = use_state(|| Option::<SentTxInfo>::None);
     let sent_transactions = use_state(|| Vec::<SentTxInfo>::new());
     let payment_secret_required = use_state(|| false);
-
-    // State for last refreshed timestamp
     let last_refreshed = use_state(|| "Last updated: Never".to_string());
 
     const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -134,22 +132,33 @@ pub fn app() -> Html {
                 let node_info = node_info.clone();
                 let push_toast = push_toast.clone();
                 spawn_local(async move {
-                    let conn = invoke("is_node_connected", JsValue::NULL).await;
-                    let msg = get_error_message(conn.clone());
-                    if msg.contains("true") {
-                        node_connected.set(true);
-                        let info_res = invoke("get_node_info", JsValue::NULL).await;
-                        let info_msg = get_error_message(info_res.clone());
-                        if let Ok(info) = serde_wasm_bindgen::from_value::<NodeInfo>(info_res) {
-                            node_info.set(info);
-                        } else {
-                            push_toast.emit((info_msg, ToastKind::Error));
-                            node_info.set(NodeInfo { url: "Unknown".into() });
+                    match safe_invoke("is_node_connected", JsValue::NULL).await {
+                        Ok(conn) => {
+                            if conn.as_bool() == Some(true) {
+                                node_connected.set(true);
+                                match safe_invoke("get_node_info", JsValue::NULL).await {
+                                    Ok(info_res) => {
+                                        if let Ok(info) = serde_wasm_bindgen::from_value::<NodeInfo>(info_res) {
+                                            node_info.set(info);
+                                        } else {
+                                            node_info.set(NodeInfo { url: "Unknown".into() });
+                                        }
+                                    }
+                                    Err(_) => {
+                                        node_info.set(NodeInfo { url: "Unknown".into() });
+                                    }
+                                }
+                            } else {
+                                node_connected.set(false);
+                                node_info.set(NodeInfo { url: "Not connected".into() });
+                                push_toast.emit(("Not connected to Vecno node — balance & transactions unavailable".into(), ToastKind::Warning));
+                            }
                         }
-                    } else {
-                        node_connected.set(false);
-                        node_info.set(NodeInfo { url: "Not connected".into() });
-                        push_toast.emit(("Warning: Not connected to Vecno node".into(), ToastKind::Warning));
+                        Err(_) => {
+                            node_connected.set(false);
+                            node_info.set(NodeInfo { url: "Not connected".into() });
+                            push_toast.emit(("Not connected to Vecno node — balance & transactions unavailable".into(), ToastKind::Warning));
+                        }
                     }
                 });
             } else {
@@ -172,13 +181,19 @@ pub fn app() -> Html {
                 let push_toast = push_toast.clone();
                 spawn_local(async move {
                     loading.set(true);
-                    let res = invoke("list_wallets", JsValue::NULL).await;
-                    let msg = get_error_message(res.clone());
-                    if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<WalletFile>>(res) {
-                        aw.set(list);
-                    } else {
-                        push_toast.emit((msg, ToastKind::Error));
-                        aw.set(vec![]);
+                    match safe_invoke("list_wallets", JsValue::NULL).await {
+                        Ok(res) => {
+                            if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<WalletFile>>(res) {
+                                aw.set(list);
+                            } else {
+                                push_toast.emit(("Failed to list wallets".into(), ToastKind::Error));
+                                aw.set(vec![]);
+                            }
+                        }
+                        Err(e) => {
+                            push_toast.emit((e, ToastKind::Error));
+                            aw.set(vec![]);
+                        }
                     }
                     loading.set(false);
                 });
@@ -207,35 +222,69 @@ pub fn app() -> Html {
                 spawn_local(async move {
                     loading.set(true);
 
-                    let open_res = invoke("is_wallet_open", JsValue::NULL).await;
-                    if !open_res.as_bool().unwrap_or(false) {
-                        push_toast.emit(("Wallet not open".into(), ToastKind::Error));
-                        scr.set(Screen::Home);
-                        wc.set(false);
-                        loading.set(false);
-                        return;
-                    }
-
-                    let addr_res = invoke("get_address", JsValue::NULL).await;
-                    let addr_msg = get_error_message(addr_res.clone());
-                    if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<WalletAddress>>(addr_res) {
-                        if list.is_empty() {
-                            push_toast.emit(("No addresses loaded".into(), ToastKind::Error));
-                            addr.set(vec![]);
-                        } else {
-                            addr.set(list);
+                    match safe_invoke("is_wallet_open", JsValue::NULL).await {
+                        Ok(open_res) => {
+                            if !open_res.as_bool().unwrap_or(false) {
+                                push_toast.emit(("Wallet not open".into(), ToastKind::Error));
+                                scr.set(Screen::Home);
+                                wc.set(false);
+                                loading.set(false);
+                                return;
+                            }
                         }
-                    } else {
-                        push_toast.emit((addr_msg, ToastKind::Error));
-                        addr.set(vec![]);
-                        loading.set(false);
-                        return;
+                        Err(_) => {
+                            push_toast.emit(("Wallet state check failed".into(), ToastKind::Error));
+                            scr.set(Screen::Home);
+                            wc.set(false);
+                            loading.set(false);
+                            return;
+                        }
                     }
 
-                    let needs_res = invoke("wallet_needs_payment_secret", JsValue::NULL).await;
-                    let needs = needs_res.as_bool().unwrap_or(false);
-                    info!("Payment secret required: {}", needs);
-                    req.set(needs);
+                    match safe_invoke("get_address", JsValue::NULL).await {
+                        Ok(addr_res) => {
+                            if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<WalletAddress>>(addr_res) {
+                                if list.is_empty() {
+                                    push_toast.emit(("No addresses loaded".into(), ToastKind::Error));
+                                    addr.set(vec![]);
+                                } else {
+                                    addr.set(list);
+                                }
+                            } else {
+                                push_toast.emit(("Failed to parse addresses".into(), ToastKind::Error));
+                                addr.set(vec![]);
+                                loading.set(false);
+                                return;
+                            }
+                        }
+                        Err(e) => {
+                            push_toast.emit((e, ToastKind::Error));
+                            addr.set(vec![]);
+                            loading.set(false);
+                            return;
+                        }
+                    }
+
+                    match safe_invoke("wallet_needs_payment_secret", JsValue::NULL).await {
+                        Ok(needs_res) => {
+                            let needs = needs_res.as_bool().unwrap_or(false);
+                            info!("Payment secret required: {}", needs);
+                            req.set(needs);
+                        }
+                        Err(_) => {
+                            req.set(false);
+                        }
+                    }
+
+                    match safe_invoke("is_node_connected", JsValue::NULL).await {
+                        Ok(conn) if conn.as_bool() != Some(true) => {
+                            push_toast.emit((
+                                "No connection to Vecno node — balance and transactions unavailable".into(),
+                                ToastKind::Warning
+                            ));
+                        }
+                        _ => {}
+                    }
 
                     loading.set(false);
                 });
@@ -247,7 +296,6 @@ pub fn app() -> Html {
         });
     }
 
-    // Initial balance fetch
     {
         let addresses = addresses.clone();
         let balance = balance.clone();
@@ -342,13 +390,19 @@ pub fn app() -> Html {
                 let pt = push_toast.clone();
                 spawn_local(async move {
                     l.set(true);
-                    let res = invoke("list_transactions", JsValue::NULL).await;
-                    let msg = get_error_message(res.clone());
-                    if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(res) {
-                        txs.set(list);
-                    } else {
-                        pt.emit((msg, ToastKind::Error));
-                        txs.set(vec![]);
+                    match safe_invoke("list_transactions", JsValue::NULL).await {
+                        Ok(res) => {
+                            if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(res) {
+                                txs.set(list);
+                            } else {
+                                pt.emit(("Failed to parse transactions".into(), ToastKind::Error));
+                                txs.set(vec![]);
+                            }
+                        }
+                        Err(e) => {
+                            pt.emit((e, ToastKind::Error));
+                            txs.set(vec![]);
+                        }
                     }
                     l.set(false);
                 });
@@ -382,24 +436,56 @@ pub fn app() -> Html {
         let wc = wallet_created.clone();
         Callback::from(move |_| if *wc { scr.set(Screen::Send) })
     };
-    let navigate_to_intro = {
+
+    let switch_wallet_callback = {
         let scr = screen.clone();
         let wc = wallet_created.clone();
         let nc = node_connected.clone();
         let ni = node_info.clone();
+        let pt = push_toast.clone();
         let l = is_loading.clone();
-        let req = payment_secret_required.clone();
+
         Callback::from(move |_| {
-            scr.set(Screen::Home);
-            wc.set(false);
-            nc.set(false);
-            ni.set(NodeInfo { url: "".into() });
-            req.set(false);
+            let scr = scr.clone();
+            let wc = wc.clone();
+            let nc = nc.clone();
+            let ni = ni.clone();
+            let pt = pt.clone();
             let l = l.clone();
+
             spawn_local(async move {
                 l.set(true);
-                let _ = invoke("close_wallet", JsValue::NULL).await;
+                pt.emit(("Closing current wallet...".into(), ToastKind::Info));
+
+                match safe_invoke("switch_wallet", JsValue::NULL).await {
+                    Ok(_) => {
+                        pt.emit(("Wallet closed. Select a new one.".into(), ToastKind::Success));
+                        wc.set(false);
+                        nc.set(false);
+                        ni.set(NodeInfo { url: "".into() });
+                        scr.set(Screen::Home);
+                    }
+                    Err(e) => {
+                        pt.emit((format!("Failed to close wallet: {}", e), ToastKind::Error));
+                    }
+                }
                 l.set(false);
+            });
+        })
+    };
+
+    let exit_app_callback = {
+        let pt = push_toast.clone();
+        let l = is_loading.clone();
+
+        Callback::from(move |_| {
+            let pt = pt.clone();
+            let l = l.clone();
+
+            spawn_local(async move {
+                l.set(true);
+                pt.emit(("Closing wallet and exiting app...".into(), ToastKind::Info));
+                let _ = safe_invoke("close_wallet", JsValue::NULL).await;
             });
         })
     };
@@ -422,48 +508,73 @@ pub fn app() -> Html {
                 pt.emit(("Password must be at least 8 characters".into(), ToastKind::Error));
                 return;
             }
+
             let filename = filename.clone();
             let secret = secret.clone();
             let wc = wc.clone();
             let scr = scr.clone();
             let l = l.clone();
             let pt = pt.clone();
+
             spawn_local(async move {
                 l.set(true);
                 pt.emit(("Verifying password...".into(), ToastKind::Info));
+
                 match verify_password(&filename, &secret).await {
                     Ok(()) => {
                         info!("Password correct. Opening wallet...");
-                        let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+
+                        let args = match serde_wasm_bindgen::to_value(&serde_json::json!({
                             "input": {
                                 "filename": filename,
                                 "secret": secret,
                                 "payment_secret": null
                             }
-                        }))
-                        .unwrap_or(JsValue::NULL);
-
-                        let res = invoke("open_wallet", args).await;
-                        let msg = get_error_message(res.clone());
-                        if let Some(s) = res.as_string() {
-                            if s.contains("Success") {
-                                pt.emit(("Wallet opened successfully!".into(), ToastKind::Success));
-                                wc.set(true);
-                                scr.set(Screen::Wallet);
-                            } else {
-                                pt.emit((s, ToastKind::Error));
+                        })) {
+                            Ok(a) => a,
+                            Err(e) => {
+                                pt.emit((format!("Request preparation failed: {}", e), ToastKind::Error));
+                                l.set(false);
+                                return;
                             }
-                        } else {
-                            pt.emit((msg, ToastKind::Error));
+                        };
+
+                        match safe_invoke("open_wallet", args).await {
+                            Ok(res) => {
+                                if let Some(msg) = res.as_string() {
+                                    if msg.contains("Success") {
+                                        pt.emit(("Wallet opened successfully!".into(), ToastKind::Success));
+                                        wc.set(true);
+                                        scr.set(Screen::Wallet);
+
+                                        let pt2 = pt.clone();
+                                        spawn_local(async move {
+                                            match safe_invoke("is_node_connected", JsValue::NULL).await {
+                                                Ok(conn) if conn.as_bool() == Some(true) => {
+                                                    pt2.emit(("Connected to Vecno network".into(), ToastKind::Success));
+                                                }
+                                                _ => {
+                                                    pt2.emit((
+                                                        "Wallet opened, but no node connection — balance & transactions unavailable".into(),
+                                                        ToastKind::Warning
+                                                    ));
+                                                }
+                                            }
+                                        });
+                                    } else {
+                                        pt.emit((msg, ToastKind::Error));
+                                    }
+                                } else {
+                                    pt.emit(("Unexpected response from server".into(), ToastKind::Error));
+                                }
+                            }
+                            Err(e) => {
+                                pt.emit((e, ToastKind::Error));
+                            }
                         }
                     }
                     Err(e) => {
-                        error!("Password verification failed: {}", e);
-                        if e.contains("Incorrect password") {
-                            pt.emit(("Incorrect password".into(), ToastKind::Error));
-                        } else {
-                            pt.emit((e, ToastKind::Error));
-                        }
+                        pt.emit((e, ToastKind::Error));
                     }
                 }
                 l.set(false);
@@ -493,37 +604,67 @@ pub fn app() -> Html {
                 pt.emit(("Password must be at least 8 characters".into(), ToastKind::Error));
                 return;
             }
+
             let wc = wc.clone();
             let scr = scr.clone();
             let l = l.clone();
             let pt = pt.clone();
+
             spawn_local(async move {
                 l.set(true);
-                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+
+                let args = match serde_wasm_bindgen::to_value(&serde_json::json!({
                     "input": {
                         "filename": filename,
                         "secret": secret,
                         "payment_secret": payment_secret
                     }
-                }))
-                .unwrap_or(JsValue::NULL);
-
-                let res = invoke("create_wallet", args).await;
-                let msg = get_error_message(res.clone());
-                if let Some(s) = res.as_string() {
-                    if s.contains("Success") {
-                        pt.emit(("Wallet created!".into(), ToastKind::Success));
-                        wc.set(true);
-                        if let Some(mnemonic) = s.split("with mnemonic: ").nth(1) {
-                            scr.set(Screen::MnemonicDisplay(mnemonic.into()));
-                        } else {
-                            scr.set(Screen::Wallet);
-                        }
-                    } else {
-                        pt.emit((s, ToastKind::Error));
+                })) {
+                    Ok(a) => a,
+                    Err(e) => {
+                        pt.emit((format!("Request error: {}", e), ToastKind::Error));
+                        l.set(false);
+                        return;
                     }
-                } else {
-                    pt.emit((msg, ToastKind::Error));
+                };
+
+                match safe_invoke("create_wallet", args).await {
+                    Ok(res) => {
+                        if let Some(msg) = res.as_string() {
+                            if msg.contains("Success") {
+                                pt.emit(("Wallet created!".into(), ToastKind::Success));
+                                wc.set(true);
+
+                                if let Some(mnemonic) = msg.split("with mnemonic: ").nth(1) {
+                                    scr.set(Screen::MnemonicDisplay(mnemonic.to_string()));
+                                } else {
+                                    scr.set(Screen::Wallet);
+                                }
+
+                                let pt2 = pt.clone();
+                                spawn_local(async move {
+                                    match safe_invoke("is_node_connected", JsValue::NULL).await {
+                                        Ok(conn) if conn.as_bool() == Some(true) => {
+                                            pt2.emit(("Connected to Vecno network".into(), ToastKind::Success));
+                                        }
+                                        _ => {
+                                            pt2.emit((
+                                                "Wallet created, but no node connection — balance unavailable".into(),
+                                                ToastKind::Warning
+                                            ));
+                                        }
+                                    }
+                                });
+                            } else {
+                                pt.emit((msg, ToastKind::Error));
+                            }
+                        } else {
+                            pt.emit(("Unknown response".into(), ToastKind::Error));
+                        }
+                    }
+                    Err(e) => {
+                        pt.emit((e, ToastKind::Error));
+                    }
                 }
                 l.set(false);
             });
@@ -561,35 +702,63 @@ pub fn app() -> Html {
                 pt.emit(("Filename contains invalid characters or is too long".into(), ToastKind::Error));
                 return;
             }
+
             let wc = wc.clone();
             let scr = scr.clone();
             let l = l.clone();
             let pt = pt.clone();
+
             spawn_local(async move {
                 l.set(true);
-                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+
+                let args = match serde_wasm_bindgen::to_value(&serde_json::json!({
                     "input": {
                         "mnemonic": mnemonic,
                         "secret": secret,
                         "payment_secret": payment_secret,
                         "filename": filename
                     }
-                }))
-                .unwrap_or(JsValue::NULL);
-
-                web_sys::console::log_1(&format!("TAURI ARGS: {:?}", args).into());
-                let res = invoke("import_wallets", args).await;
-                let msg = get_error_message(res.clone());
-                if let Some(s) = res.as_string() {
-                    if s.contains("Success") {
-                        pt.emit(("Wallet imported!".into(), ToastKind::Success));
-                        wc.set(true);
-                        scr.set(Screen::Wallet);
-                    } else {
-                        pt.emit((s, ToastKind::Error));
+                })) {
+                    Ok(a) => a,
+                    Err(e) => {
+                        pt.emit((format!("Request error: {}", e), ToastKind::Error));
+                        l.set(false);
+                        return;
                     }
-                } else {
-                    pt.emit((msg, ToastKind::Error));
+                };
+
+                match safe_invoke("import_wallets", args).await {
+                    Ok(res) => {
+                        if let Some(msg) = res.as_string() {
+                            if msg.contains("Success") {
+                                pt.emit(("Wallet imported!".into(), ToastKind::Success));
+                                wc.set(true);
+                                scr.set(Screen::Wallet);
+
+                                let pt2 = pt.clone();
+                                spawn_local(async move {
+                                    match safe_invoke("is_node_connected", JsValue::NULL).await {
+                                        Ok(conn) if conn.as_bool() == Some(true) => {
+                                            pt2.emit(("Connected to Vecno network".into(), ToastKind::Success));
+                                        }
+                                        _ => {
+                                            pt2.emit((
+                                                "Wallet imported, but no node connection — balance unavailable".into(),
+                                                ToastKind::Warning
+                                            ));
+                                        }
+                                    }
+                                });
+                            } else {
+                                pt.emit((msg, ToastKind::Error));
+                            }
+                        } else {
+                            pt.emit(("Unknown response".into(), ToastKind::Error));
+                        }
+                    }
+                    Err(e) => {
+                        pt.emit((e, ToastKind::Error));
+                    }
                 }
                 l.set(false);
             });
@@ -676,9 +845,13 @@ pub fn app() -> Html {
                     let msg = get_error_message(res_clone);
                     pt.emit((msg, ToastKind::Error));
                 }
-                let list_res = invoke("list_transactions", JsValue::NULL).await;
-                if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(list_res) {
-                    txs.set(list);
+                match safe_invoke("list_transactions", JsValue::NULL).await {
+                    Ok(list_res) => {
+                        if let Ok(list) = serde_wasm_bindgen::from_value::<Vec<Transaction>>(list_res) {
+                            txs.set(list);
+                        }
+                    }
+                    Err(_) => {}
                 }
                 if !(*addrs).is_empty() {
                     let addrs = addrs.clone();
@@ -776,20 +949,42 @@ pub fn app() -> Html {
                         </button>
                     </nav>
                     <div class="sidebar-footer">
-                        <button onclick={navigate_to_intro} class="exit-btn"><span aria-hidden="true"></span>{"Exit"}</button>
+                        <button onclick={exit_app_callback} class="exit-btn">
+                            {"Exit"}
+                        </button>
                     </div>
                 </aside>
                 <main class="main-content">
                     { match &*screen {
                         Screen::Intro => html! { <Intro /> },
-                        Screen::Home => html! {
-                            <Home
-                                available_wallets={(*available_wallets).clone()}
-                                is_loading={*is_loading}
-                                on_open_wallet={open_wallet}
-                                on_create={set_screen(Screen::CreateWallet)}
-                                on_import={set_screen(Screen::ImportWallet)}
-                            />
+                        Screen::Home => {
+                            if *wallet_created {
+                                html! {
+                                    <>
+                                        <div class="screen-container home-centered" role="main">
+                                            <div class="home-inner">
+                                                <p class="home-title">{"Wallet is currently open"}</p>
+                                                <button onclick={switch_wallet_callback} class="btn btn-primary btn-large">
+                                                    {"Switch Wallet"}
+                                                </button>
+                                                <p class="home-hint">
+                                                    {"Click to close the current wallet and choose another."}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </>
+                                }
+                            } else {
+                                html! {
+                                    <Home
+                                        available_wallets={(*available_wallets).clone()}
+                                        is_loading={*is_loading}
+                                        on_open_wallet={open_wallet}
+                                        on_create={set_screen(Screen::CreateWallet)}
+                                        on_import={set_screen(Screen::ImportWallet)}
+                                    />
+                                }
+                            }
                         },
                         Screen::CreateWallet => html! {
                             <CreateWallet
