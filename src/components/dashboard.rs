@@ -52,19 +52,23 @@ pub struct DashboardProps {
 
 #[function_component(Dashboard)]
 pub fn dashboard(props: &DashboardProps) -> Html {
-    let stats = use_state(|| None::<NetworkStats>);
-    let stats_loading = use_state(|| false);
+    let stats = use_state(|| Option::<NetworkStats>::None);
+    let stats_loading = use_state(|| true);
+    let stats_error = use_state(|| false);
 
     let fetch_stats = {
         let stats = stats.clone();
         let stats_loading = stats_loading.clone();
+        let stats_error = stats_error.clone();
 
         Callback::from(move |_| {
             let stats = stats.clone();
             let stats_loading = stats_loading.clone();
+            let stats_error = stats_error.clone();
 
             spawn_local(async move {
                 stats_loading.set(true);
+                stats_error.set(false);
 
                 let mut new_stats = NetworkStats {
                     height: "0".to_string(),
@@ -75,86 +79,73 @@ pub fn dashboard(props: &DashboardProps) -> Html {
                     market_cap_usd: "0".to_string(),
                 };
 
-                // 1. Network Info → Height + Difficulty
-                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/network")
-                    .send()
-                    .await
-                {
+                let mut success = false;
+
+                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/network").send().await {
                     if resp.ok() {
                         if let Ok(info) = resp.json::<NetworkInfo>().await {
                             new_stats.height = format_with_commas(info.virtual_daa_score.parse::<u64>().unwrap_or(0));
                             new_stats.difficulty = format_difficulty(info.difficulty);
+                            success = true;
                         }
                     }
                 }
 
-                // 2. Hashrate
-                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/hashrate?stringOnly=false")
-                    .send()
-                    .await
-                {
+                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/hashrate?stringOnly=false").send().await {
                     if resp.ok() {
                         if let Ok(hr) = resp.json::<HashrateResponse>().await {
                             new_stats.hashrate = format_hashrate(hr.hashrate);
+                            success = true;
                         }
                     }
                 }
 
-                // 3. Price
-                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/price?stringOnly=false")
-                    .send()
-                    .await
-                {
+                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/price?stringOnly=false").send().await {
                     if resp.ok() {
                         if let Ok(pr) = resp.json::<PriceResponse>().await {
                             new_stats.price_usd = pr.price;
+                            success = true;
                         }
                     }
                 }
 
-                // 4. Market Cap
-                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/marketcap?stringOnly=false")
-                    .send()
-                    .await
-                {
+                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/marketcap?stringOnly=false").send().await {
                     if resp.ok() {
                         if let Ok(mc) = resp.json::<MarketCapResponse>().await {
                             new_stats.market_cap_usd = format_with_commas(mc.marketcap);
+                            success = true;
                         }
                     }
                 }
 
-                // 5. Circulating Supply
-                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/coinsupply")
-                    .send()
-                    .await
-                {
+                if let Ok(resp) = Request::get("https://api.vecnoscan.org/info/coinsupply").send().await {
                     if resp.ok() {
                         if let Ok(supply_data) = resp.json::<CoinSupply>().await {
                             if let Ok(sompis) = supply_data.circulating_supply.parse::<u64>() {
                                 let ve_amount = sompis / 100_000_000;
                                 new_stats.supply = format_with_commas(ve_amount);
+                                success = true;
                             }
                         }
                     }
                 }
 
-                stats.set(Some(new_stats));
+                if success {
+                    stats.set(Some(new_stats));
+                } else {
+                    stats_error.set(true);
+                }
+
                 stats_loading.set(false);
             });
         })
     };
 
-    // Auto-refresh every 2 minutes
     {
         let fetch_stats = fetch_stats.clone();
         use_effect_with((), move |_| {
             fetch_stats.emit(());
-
-            let interval = Interval::new(120_000, move || {
-                fetch_stats.emit(());
-            });
-
+            let interval = Interval::new(120_000, move || fetch_stats.emit(()));
             || drop(interval)
         });
     }
@@ -163,24 +154,40 @@ pub fn dashboard(props: &DashboardProps) -> Html {
         <div class="screen-container" role="main" aria-label="Vecno Wallet Dashboard">
             <div class="balance-container" aria-live="assertive">
                 <h2>{"Wallet Balance"}</h2>
-                <p class={classes!("balance", if props.is_loading && props.balance.is_empty() { "loading" } else { "" })}>
-                    { if props.is_loading && props.balance.is_empty() {
-                        "Fetching balance..."
-                    } else {
-                        &props.balance
-                    }}
+                <p class={classes!("balance", if props.is_loading { "loading" } else { "" })}>
+                    {
+                        if props.is_loading {
+                            "Fetching balance..."
+                        } else {
+                            if props.balance.is_empty() || props.balance == "Balance: unavailable" {
+                                "Preparing balance..."
+                            } else {
+                                {&props.balance}
+                            }
+                        }
+                    }
                 </p>
                 <p class="last-updated" aria-live="polite">
                     { &props.last_refreshed }
                 </p>
             </div>
 
-            <h3 class="section-title">{"Network Statistics"}</h3>
+            <div class="network-stats-section">
+                <h3 class="section-title">{"Network Statistics"}</h3>
 
-            { if *stats_loading {
-                html! { <p class="status">{"Loading network stats..."}</p> }
-            } else if let Some(s) = (*stats).as_ref() {
-                html! {
+                if *stats_loading {
+                    <div class="stats-grid loading-grid">
+                        { (0..6).map(|_| html! {
+                            <div class="stat-card skeleton">
+                                <span class="stat-label skeleton-line"></span>
+                                <span class="stat-value skeleton-line long"></span>
+                            </div>
+                        }).collect::<Html>() }
+                    </div>
+                    <p class="status loading-text">{"Loading network stats..."}</p>
+                } else if *stats_error {
+                    <p class="status error">{"Network stats unavailable (connection issue)"}</p>
+                } else if let Some(s) = (*stats).as_ref() {
                     <div class="stats-grid">
                         <div class="stat-card">
                             <span class="stat-label">{"Block Height"}</span>
@@ -196,12 +203,12 @@ pub fn dashboard(props: &DashboardProps) -> Html {
                         </div>
                         <div class="stat-card">
                             <span class="stat-label">{"Circulating Supply"}</span>
-                            <span class="stat-value">{ &s.supply }</span>
+                            <span class="stat-value">{ &s.supply }{ "" }</span>
                         </div>
                         <div class="stat-card">
                             <span class="stat-label">{"Price (USD)"}</span>
                             <span class="stat-value">
-                                { 
+                                {
                                     if s.price_usd > 0.0 {
                                         let formatted = format!("{:.8}", s.price_usd);
                                         let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
@@ -214,15 +221,13 @@ pub fn dashboard(props: &DashboardProps) -> Html {
                         </div>
                         <div class="stat-card">
                             <span class="stat-label">{"Market Cap (USD)"}</span>
-                            <span class="stat-value">
-                                { format!("${}", s.market_cap_usd) }
-                            </span>
+                            <span class="stat-value">{ format!("${}", s.market_cap_usd) }</span>
                         </div>
                     </div>
+                } else {
+                    <p class="status">{"Network stats unavailable."}</p>
                 }
-            } else {
-                html! { <p class="status">{"Network stats unavailable."}</p> }
-            }}
+            </div>
         </div>
     }
 }

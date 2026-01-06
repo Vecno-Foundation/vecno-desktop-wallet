@@ -8,7 +8,7 @@ use yew::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use wasm_bindgen::prelude::*;
 use log::{error, info};
-use gloo_timers::callback::Interval;
+use gloo_timers::callback::{Interval, Timeout};
 use js_sys::Date;
 
 async fn fetch_balance(
@@ -91,6 +91,7 @@ pub fn app() -> Html {
             || drop(timeout)
         });
     }
+
     let (_toast_state, push_toast, _clear_toast, toast_html) = use_toast();
     let wallet_created = use_state(|| false);
     let addresses = use_state(|| Vec::<WalletAddress>::new());
@@ -302,33 +303,9 @@ pub fn app() -> Html {
         let is_loading = is_loading.clone();
         let push_toast = push_toast.clone();
         let last_refreshed = last_refreshed.clone();
-
-        use_effect_with(addresses.clone(), move |addrs| {
-            if !addrs.is_empty() {
-                let a = addrs.clone();
-                let b = balance.clone();
-                let l = is_loading.clone();
-                let pt = push_toast.clone();
-                let lr = last_refreshed.clone();
-                spawn_local(async move {
-                    l.set(true);
-                    fetch_balance(a, b, l, pt, lr).await;
-                });
-            }
-            || {}
-        });
-    }
-
-    {
-        let addresses = addresses.clone();
-        let balance = balance.clone();
-        let is_loading = is_loading.clone();
-        let push_toast = push_toast.clone();
-        let last_refreshed = last_refreshed.clone();
         let wallet_created = wallet_created.clone();
 
-        let interval_handle = use_state(|| Option::<gloo_timers::callback::Interval>::None);
-
+        let interval_handle = use_state(|| Option::<Interval>::None);
         let interval_handle_clone = interval_handle.clone();
 
         use_effect_with((wallet_created.clone(), addresses.clone()), move |(created, addrs)| {
@@ -344,6 +321,9 @@ pub fn app() -> Html {
                 let lr = last_refreshed.clone();
                 let interval_handle = interval_handle.clone();
 
+                l.set(true);
+                lr.set("Last updated: —".to_string());
+
                 spawn_local({
                     let a = a.clone();
                     let b = b.clone();
@@ -351,12 +331,12 @@ pub fn app() -> Html {
                     let pt = pt.clone();
                     let lr = lr.clone();
                     async move {
-                        l.set(true);
+                        gloo_timers::future::TimeoutFuture::new(10_000).await;
                         fetch_balance(a, b, l, pt, lr).await;
                     }
                 });
 
-                let interval = Interval::new(30_000, move || {
+                let tick = move || {
                     let a = a.clone();
                     let b = b.clone();
                     let l = l.clone();
@@ -366,12 +346,20 @@ pub fn app() -> Html {
                         l.set(true);
                         fetch_balance(a, b, l, pt, lr).await;
                     });
+                };
+
+                let first_tick_timeout = Timeout::new(30_000, move || {
+                    tick();
+                    let interval = Interval::new(30_000, tick);
+                    interval_handle.set(Some(interval));
                 });
 
-                interval_handle.set(Some(interval));
+                std::mem::forget(first_tick_timeout);
             } else {
                 balance.set(String::new());
                 last_refreshed.set("Last updated: Never".to_string());
+                is_loading.set(false);
+                cleanup();
             }
 
             cleanup
@@ -768,14 +756,11 @@ pub fn app() -> Html {
     let send_transaction = {
         let l = is_loading.clone();
         let txs = transactions.clone();
-        let addrs = addresses.clone();
-        let bal = balance.clone();
         let last = last_txid.clone();
         let wc = wallet_created.clone();
         let pt = push_toast.clone();
         let last_sent = last_sent.clone();
         let sent_transactions = sent_transactions.clone();
-        let last_refreshed = last_refreshed.clone();
 
         Callback::from(move |(to_addr, amount_veni, payment_secret): (String, u64, Option<String>)| {
             if to_addr.is_empty() {
@@ -793,13 +778,10 @@ pub fn app() -> Html {
 
             let l = l.clone();
             let txs = txs.clone();
-            let addrs = addrs.clone();
-            let bal = bal.clone();
             let last = last.clone();
             let pt = pt.clone();
             let last_sent = last_sent.clone();
             let sent_transactions = sent_transactions.clone();
-            let last_refreshed = last_refreshed.clone();
 
             spawn_local(async move {
                 l.set(true);
@@ -853,19 +835,6 @@ pub fn app() -> Html {
                     }
                     Err(_) => {}
                 }
-                if !(*addrs).is_empty() {
-                    let addrs = addrs.clone();
-                    let bal = bal.clone();
-                    let l = l.clone();
-                    let pt = pt.clone();
-                    let last_refreshed = last_refreshed.clone();
-
-                    spawn_local(async move {
-                        gloo_timers::future::TimeoutFuture::new(3_000).await;
-                        fetch_balance(addrs, bal, l, pt, last_refreshed).await;
-                    });
-                }
-                l.set(false);
             });
         })
     };

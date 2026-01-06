@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 use log::error;
 use js_sys::{Promise, Reflect};
 use wasm_bindgen_futures::JsFuture;
+use web_sys::window;
 
 #[wasm_bindgen]
 extern "C" {
@@ -13,17 +14,17 @@ extern "C" {
 }
 
 pub async fn safe_invoke(cmd: &str, args: JsValue) -> Result<JsValue, String> {
-    let window = web_sys::window().ok_or("No window")?;
+    let window = window().ok_or("No window")?;
     let tauri = Reflect::get(&window, &"__TAURI__".into())
-        .map_err(|e| format!("Tauri not found: {:?}", e))?;
+        .map_err(|_| "Tauri not found".to_string())?;
     let core = Reflect::get(&tauri, &"core".into())
-        .map_err(|e| format!("Tauri core not found: {:?}", e))?;
+        .map_err(|_| "Tauri core not found".to_string())?;
     let invoke_fn = Reflect::get(&core, &"invoke".into())
-        .map_err(|e| format!("invoke not found: {:?}", e))?;
+        .map_err(|_| "invoke not found".to_string())?;
 
     let func = js_sys::Function::from(invoke_fn);
     let promise = func.call2(&JsValue::NULL, &cmd.into(), &args)
-        .map_err(|e| format!("Call failed: {:?}", e))?;
+        .map_err(|_| "Call failed".to_string())?;
 
     let promise = Promise::from(promise);
     let result = JsFuture::from(promise).await
@@ -34,7 +35,9 @@ pub async fn safe_invoke(cmd: &str, args: JsValue) -> Result<JsValue, String> {
 
 pub fn is_valid_filename(filename: &str) -> bool {
     let invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*', ','];
-    !filename.is_empty() && !filename.contains(&invalid_chars[..]) && filename.len() <= 255
+    !filename.is_empty()
+        && !filename.chars().any(|c| invalid_chars.contains(&c))
+        && filename.len() <= 255
 }
 
 pub fn is_valid_password(secret: &str) -> bool {
@@ -55,7 +58,10 @@ pub fn format_amount(amount: u64) -> String {
         "0 VE".to_string()
     } else {
         let ve = amount as f64 / 100_000_000.0;
-        format!("{:.8} VE", ve).trim_end_matches('0').trim_end_matches('.').to_string() + ""
+        format!("{:.8} VE", ve)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string()
     }
 }
 
@@ -82,14 +88,13 @@ pub fn ve_to_veni(ve_str: &str) -> Option<u64> {
 pub fn clear_status_after_delay(status: UseStateHandle<String>, delay_ms: u64) {
     let status = status.clone();
     spawn_local(async move {
-        wasm_bindgen_futures::JsFuture::from(js_sys::Promise::new(&mut |resolve, _| {
-            web_sys::window()
+        let _ = JsFuture::from(Promise::new(&mut |resolve, _| {
+            window()
                 .unwrap()
                 .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, delay_ms as i32)
                 .unwrap();
         }))
-        .await
-        .unwrap();
+        .await;
         status.set(String::new());
     });
 }
@@ -105,7 +110,13 @@ pub fn get_error_message(res: JsValue) -> String {
         return s;
     }
 
-    format!("{:?}", res)
+    if let Ok(str_val) = js_sys::JSON::stringify(&res) {
+        if let Some(s) = str_val.as_string() {
+            return s;
+        }
+    }
+
+    "Unknown error (failed to extract message)".to_string()
 }
 
 pub async fn verify_password(filename: &str, secret: &str) -> Result<(), String> {
@@ -127,29 +138,27 @@ pub async fn verify_password(filename: &str, secret: &str) -> Result<(), String>
         }
     };
 
-    let promise = match js_sys::Reflect::get(&web_sys::window().unwrap(), &"__TAURI__".into())
-        .and_then(|tauri| js_sys::Reflect::get(&tauri, &"core".into()))
-        .and_then(|core| js_sys::Reflect::get(&core, &"invoke".into()))
-        .ok()
+    let window = window().unwrap();
+    let invoke_fn = match Reflect::get(&window, &"__TAURI__".into())
+        .and_then(|tauri| Reflect::get(&tauri, &"core".into()))
+        .and_then(|core| Reflect::get(&core, &"invoke".into()))
     {
-        Some(invoke_fn) => {
-            match js_sys::Function::from(invoke_fn).call2(&JsValue::NULL, &"verify_wallet_password".into(), &args) {
-                Ok(p) => p,
-                Err(e) => {
-                    let msg = get_error_message(e);
-                    error!("Tauri invoke failed: {}", msg);
-                    return Err(msg);
-                }
-            }
-        }
-        None => {
-            return Err("Tauri not available".into());
+        Ok(f) => f,
+        Err(_) => return Err("Tauri not available".into()),
+    };
+
+    let promise = match js_sys::Function::from(invoke_fn)
+        .call2(&JsValue::NULL, &"verify_wallet_password".into(), &args)
+    {
+        Ok(p) => p,
+        Err(e) => {
+            let msg = get_error_message(e);
+            error!("Tauri invoke failed: {}", msg);
+            return Err(msg);
         }
     };
 
-    let promise = Promise::from(promise);
-
-    let result = match JsFuture::from(promise).await {
+    let result = match JsFuture::from(Promise::from(promise)).await {
         Ok(res) => res,
         Err(js_err) => {
             let msg = get_error_message(js_err);
@@ -160,15 +169,16 @@ pub async fn verify_password(filename: &str, secret: &str) -> Result<(), String>
 
     let msg = get_error_message(result);
 
-    if msg.contains("Incorrect password") ||
-       msg.contains("error") ||
-       msg.contains("not exist") ||
-       msg.contains("Invalid") ||
-       msg.contains("failed") {
-        return Err(msg);
+    if msg.contains("Incorrect password")
+        || msg.contains("error")
+        || msg.contains("not exist")
+        || msg.contains("Invalid")
+        || msg.contains("failed")
+    {
+        Err(msg)
+    } else {
+        Ok(())
     }
-
-    Ok(())
 }
 
 pub fn format_with_commas(n: u64) -> String {
