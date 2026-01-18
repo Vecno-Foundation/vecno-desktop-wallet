@@ -10,7 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
@@ -43,22 +42,59 @@
         "worker-src": "'self' blob:",
         "media-src": "'none'"
       }
-    }
+    },
+    "withGlobalTauri": true
   },
   "bundle": {
     "active": true,
     "targets": "all",
     "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.png",
       "icons/favicon.ico"
     ],
+    "longDescription": "Secure and modern wallet for the Vecno network",
+    "shortDescription": "Vecno Wallet",
+    "copyright": "© 2026 Vecno Foundation",
+    "license": "MIT",
+    "linux": {
+      "deb": {
+        "depends": [
+          "libgtk-3-0",
+          "libwebkit2gtk-4.1-0",
+          "libappindicator3-1",
+          "librsvg2-2"
+        ]
+      },
+      "appimage": {}
+    },
     "macOS": {
-      "minimumSystemVersion": "10.15"
+      "entitlements": null,
+      "exceptionDomain": "",
+      "frameworks": [],
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "10.15",
+      "providerShortName": "Vecno Foundation"
     },
     "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
       "nsis": {
-        "installerIcon": "icons/favicon.ico"
+        "installerIcon": "icons/favicon.ico",
+        "installMode": "currentUser",
+        "languages": [
+          "English"
+        ]
       }
     }
   },
-  "plugins": {}
+  "plugins": {
+    "opener": {
+      "open": true
+    }
+  }
 }
