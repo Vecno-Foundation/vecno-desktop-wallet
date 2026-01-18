@@ -331,7 +331,7 @@ pub fn app() -> Html {
                     let pt = pt.clone();
                     let lr = lr.clone();
                     async move {
-                        gloo_timers::future::TimeoutFuture::new(10_000).await;
+                        gloo_timers::future::TimeoutFuture::new(5_000).await;
                         fetch_balance(a, b, l, pt, lr).await;
                     }
                 });

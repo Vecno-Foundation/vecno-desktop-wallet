@@ -22,9 +22,8 @@
         "minWidth": 1000,
         "minHeight": 600,
         "decorations": false,
-        "transparent": true,
         "center": true,
-        "devtools": true
+        "devtools": false
       }
     ],
     "security": {
@@ -92,9 +91,5 @@
       }
     }
   },
-  "plugins": {
-    "opener": {
-      "open": true
-    }
-  }
+  "plugins": {}
 }
