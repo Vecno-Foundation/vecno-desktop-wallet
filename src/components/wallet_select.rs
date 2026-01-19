@@ -1,6 +1,6 @@
 use yew::prelude::*;
 use crate::models::WalletFile;
-use web_sys::{MouseEvent, Element};
+use web_sys::{MouseEvent, Element, InputEvent};
 use wasm_bindgen::JsCast;
 
 #[derive(Properties, PartialEq)]
@@ -13,6 +13,7 @@ pub struct WalletSelectProps {
 #[function_component(WalletSelect)]
 pub fn wallet_select(props: &WalletSelectProps) -> Html {
     let is_open = use_state(|| false);
+    let search_query = use_state(String::new);
     let wrapper_ref = use_node_ref();
     let selected_wallet = props.wallets.iter().find(|w| w.path == props.selected);
 
@@ -26,11 +27,41 @@ pub fn wallet_select(props: &WalletSelectProps) -> Html {
 
     let select_wallet = {
         let is_open = is_open.clone();
+        let search_query = search_query.clone();
         let on_select = props.on_select.clone();
         Callback::from(move |path: String| {
             on_select.emit(path);
             is_open.set(false);
+            search_query.set(String::new());
         })
+    };
+
+    let on_search_input = {
+        let search_query = search_query.clone();
+        Callback::from(move |e: InputEvent| {
+            if let Some(input) = e.target_dyn_into::<web_sys::HtmlInputElement>() {
+                search_query.set(input.value());
+            }
+        })
+    };
+
+    {
+        let search_query = search_query.clone();
+        use_effect_with(is_open.clone(), move |open| {
+            if !**open {
+                search_query.set(String::new());
+            }
+            || {}
+        });
+    }
+
+    let filtered_wallets: Vec<&WalletFile> = if search_query.is_empty() {
+        props.wallets.iter().collect()
+    } else {
+        let query_lower = search_query.to_lowercase();
+        props.wallets.iter()
+            .filter(|w| w.name.to_lowercase().contains(&query_lower))
+            .collect()
     };
 
     {
@@ -98,23 +129,45 @@ pub fn wallet_select(props: &WalletSelectProps) -> Html {
             { if *is_open {
                 html! {
                     <div class="wallet-select-dropdown">
-                        { for props.wallets.iter().map(|w| {
-                            let path = w.path.clone();
-                            let name = w.name.clone();
-                            let is_selected = w.path == props.selected;
-                            html! {
-                                <button
-                                    type="button"
-                                    class={classes!(
-                                        "wallet-select-option",
-                                        if is_selected { "selected" } else { "" }
-                                    )}
-                                    onclick={select_wallet.reform(move |_| path.clone())}
-                                >
-                                    { &name }
-                                </button>
-                            }
-                        })}
+                        <div class="wallet-select-search">
+                            <input
+                                type="text"
+                                placeholder="Search wallets..."
+                                class="wallet-select-search-input"
+                                value={(*search_query).clone()}
+                                oninput={on_search_input}
+                                onclick={Callback::from(move |e: MouseEvent| e.stop_propagation())}
+                            />
+                        </div>
+                        <div class="wallet-select-options">
+                            { if filtered_wallets.is_empty() {
+                                html! {
+                                    <div class="wallet-select-empty">
+                                        {"No wallets found"}
+                                    </div>
+                                }
+                            } else {
+                                html! {
+                                    { for filtered_wallets.iter().map(|w| {
+                                        let path = w.path.clone();
+                                        let name = w.name.clone();
+                                        let is_selected = w.path == props.selected;
+                                        html! {
+                                            <button
+                                                type="button"
+                                                class={classes!(
+                                                    "wallet-select-option",
+                                                    if is_selected { "selected" } else { "" }
+                                                )}
+                                                onclick={select_wallet.reform(move |_| path.clone())}
+                                            >
+                                                { &name }
+                                            </button>
+                                        }
+                                    })}
+                                }
+                            }}
+                        </div>
                     </div>
                 }
             } else {

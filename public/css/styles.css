@@ -389,11 +389,59 @@ a:hover {
   border-radius: var(--border-radius);
   box-shadow: var(--shadow);
   z-index: 1000;
-  max-height: 300px;
-  overflow-y: auto;
+  max-height: calc(2.75rem * 5 + 3.5rem);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   animation: fadeIn 0.2s ease;
+}
+
+.wallet-select-search {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--surface-dark);
+  flex-shrink: 0;
+}
+
+.wallet-select-search-input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-dark);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.wallet-select-search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.wallet-select-search-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.wallet-select-options {
+  overflow-y: auto;
+  max-height: calc(2.75rem * 5);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  display: flex;
+  flex-direction: column;
+}
+
+.wallet-select-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 .wallet-select-option {
