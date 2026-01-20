@@ -133,7 +133,7 @@
     top: 0;
     background-size: 200% 100%;
     background-repeat: no-repeat;
-    animation: toast-progress-fade 8s linear forwards;
+    animation: toast-progress-fade 5s linear forwards;
 }
 
 .toast-error .toast-progress-bar {
