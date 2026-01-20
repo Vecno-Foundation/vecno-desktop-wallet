@@ -22,9 +22,14 @@ pub fn toast(props: &ToastProps) -> Html {
 
     html! {
         <div class={classes!("toast", kind_class)}>
-            <span class="toast-icon" style={format!("-webkit-mask-image: url(\"{}\"); mask-image: url(\"{}\");", icon_mask, icon_mask)}></span>
-            <span class="toast-message">{ &props.message }</span>
-            <button class="toast-close" onclick={close}>{ "×" }</button>
+            <div class="toast-content">
+                <span class="toast-icon" style={format!("-webkit-mask-image: url(\"{}\"); mask-image: url(\"{}\");", icon_mask, icon_mask)}></span>
+                <span class="toast-message">{ &props.message }</span>
+                <button class="toast-close" onclick={close} aria-label="Close">{ "×" }</button>
+            </div>
+            <div class="toast-progress-container">
+                <div class="toast-progress-bar"></div>
+            </div>
         </div>
     }
 }
@@ -43,7 +48,7 @@ pub fn use_toast() -> (
         use_effect_with(toast.clone(), move |t| {
             if t.is_some() {
                 let toast = toast.clone();
-                let handle = Timeout::new(8_000, move || toast.set(None));
+                let handle = Timeout::new(5_000, move || toast.set(None));
                 handle.forget();
             }
             || ()
@@ -59,7 +64,12 @@ pub fn use_toast() -> (
         let toast = toast.clone();
         Callback::from(move |(msg, kind)| {
             web_sys::console::log_1(&format!("PUSH TOAST: {} ({:?})", msg, kind).into());
-            toast.set(Some((msg, kind)))
+            toast.set(None);
+            let toast_clone = toast.clone();
+            let handle = Timeout::new(5_000, move || {
+                toast_clone.set(Some((msg, kind)));
+            });
+            handle.forget();
         })
     };
 
@@ -69,9 +79,7 @@ pub fn use_toast() -> (
         html! {
             <div class="toast-container">
                 if let Some((msg, kind)) = &*toast {
-                    <div class="toast-center">
-                        <Toast message={msg.clone()} kind={kind.clone()} on_close={clear.reform(|_| ())} />
-                    </div>
+                    <Toast message={msg.clone()} kind={kind.clone()} on_close={clear.reform(|_| ())} />
                 }
             </div>
         }

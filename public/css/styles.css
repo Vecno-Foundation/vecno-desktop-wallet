@@ -263,7 +263,7 @@ a:hover {
 
 #wallet-select {
   appearance: none;
-  background-color: #374151;
+  background-color: rgba(255, 255, 255, 0.08);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e5e7eb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 1rem center;
@@ -277,18 +277,205 @@ a:hover {
   color: var(--text-dark);
   transition: all 0.25s ease;
   text-align: left;
+  width: 100%;
+}
+#wallet-select:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 #wallet-select:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(59,130,246,0.25);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+  background-color: rgba(255, 255, 255, 0.12);
 }
 #wallet-select option {
   background: var(--surface-dark);
   color: var(--text-dark);
-  padding: 0.75rem;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+}
+#wallet-select option:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--text-dark);
+}
+#wallet-select option:checked {
+  background: rgba(59, 130, 246, 0.3);
+  color: var(--text-dark);
+}
+#wallet-select option:focus {
+  background: rgba(59, 130, 246, 0.25);
 }
 
+/* Custom Wallet Select Dropdown */
+.wallet-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.wallet-select-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: left;
+  appearance: none;
+}
+
+.wallet-select-button:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.wallet-select-button:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.wallet-select-text {
+  flex: 1;
+  text-align: left;
+  color: var(--text-dark);
+}
+
+.wallet-select-text:empty::before {
+  content: "Select a wallet";
+  color: var(--text-muted);
+}
+
+.wallet-select-arrow {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-left: 0.5rem;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.wallet-select-arrow.open {
+  transform: rotate(180deg);
+}
+
+.wallet-select-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  background: var(--surface-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  z-index: 1000;
+  max-height: calc(2.75rem * 5 + 3.5rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.2s ease;
+}
+
+.wallet-select-search {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--surface-dark);
+  flex-shrink: 0;
+}
+
+.wallet-select-search-input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-dark);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.wallet-select-search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.wallet-select-search-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.wallet-select-options {
+  overflow-y: auto;
+  max-height: calc(2.75rem * 5);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  display: flex;
+  flex-direction: column;
+}
+
+.wallet-select-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.wallet-select-option {
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.wallet-select-option:last-child {
+  border-bottom: none;
+}
+
+.wallet-select-option:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--text-dark);
+}
+
+.wallet-select-option.selected {
+  background: rgba(59, 130, 246, 0.3);
+  color: var(--text-dark);
+}
+
+.wallet-select-option:focus {
+  outline: none;
+  background: rgba(59, 130, 246, 0.25);
+}
 
 .word-slot {
   position: relative;
