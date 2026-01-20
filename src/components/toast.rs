@@ -22,9 +22,14 @@ pub fn toast(props: &ToastProps) -> Html {
 
     html! {
         <div class={classes!("toast", kind_class)}>
-            <span class="toast-icon" style={format!("-webkit-mask-image: url(\"{}\"); mask-image: url(\"{}\");", icon_mask, icon_mask)}></span>
-            <span class="toast-message">{ &props.message }</span>
-            <button class="toast-close" onclick={close}>{ "×" }</button>
+            <div class="toast-content">
+                <span class="toast-icon" style={format!("-webkit-mask-image: url(\"{}\"); mask-image: url(\"{}\");", icon_mask, icon_mask)}></span>
+                <span class="toast-message">{ &props.message }</span>
+                <button class="toast-close" onclick={close} aria-label="Close">{ "×" }</button>
+            </div>
+            <div class="toast-progress-container">
+                <div class="toast-progress-bar"></div>
+            </div>
         </div>
     }
 }
@@ -69,9 +74,7 @@ pub fn use_toast() -> (
         html! {
             <div class="toast-container">
                 if let Some((msg, kind)) = &*toast {
-                    <div class="toast-center">
-                        <Toast message={msg.clone()} kind={kind.clone()} on_close={clear.reform(|_| ())} />
-                    </div>
+                    <Toast message={msg.clone()} kind={kind.clone()} on_close={clear.reform(|_| ())} />
                 }
             </div>
         }
