@@ -1,5 +1,6 @@
 use yew::prelude::*;
 use crate::models::WalletFile;
+use crate::components::wallet_select::WalletSelect;
 
 #[derive(Properties, PartialEq)]
 pub struct HomeProps {
@@ -15,12 +16,10 @@ pub fn home(props: &HomeProps) -> Html {
     let selected = use_state(String::new);
     let password = use_state(String::new);
 
-    let on_wallet_change = {
+    let on_wallet_select = {
         let selected = selected.clone();
-        Callback::from(move |e: Event| {
-            if let Some(el) = e.target_dyn_into::<web_sys::HtmlSelectElement>() {
-                selected.set(el.value());
-            }
+        Callback::from(move |path: String| {
+            selected.set(path);
         })
     };
 
@@ -54,12 +53,11 @@ pub fn home(props: &HomeProps) -> Html {
                     html! {
                         <form class="open-wallet-form" {onsubmit}>
                             <div class="row">
-                                <select id="wallet-select" class="input" onchange={on_wallet_change}>
-                                    <option value="" selected=true disabled=true>{"Select a wallet"}</option>
-                                    { for props.available_wallets.iter().map(|w| html! {
-                                        <option value={w.path.clone()}>{ &w.name }</option>
-                                    })}
-                                </select>
+                                <WalletSelect
+                                    wallets={props.available_wallets.clone()}
+                                    selected={(*selected).clone()}
+                                    on_select={on_wallet_select}
+                                />
                                 <input
                                     type="password"
                                     placeholder="Enter wallet password"

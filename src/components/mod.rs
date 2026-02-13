@@ -9,6 +9,7 @@ pub mod send;
 pub mod receive;
 pub mod toast;
 pub mod tx_detail_modal;
+pub mod wallet_select;
 
 pub use intro::Intro;
 pub use home::Home;

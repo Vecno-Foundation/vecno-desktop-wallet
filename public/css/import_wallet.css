@@ -118,7 +118,13 @@
 .mnemonic-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
+  gap: var(--spacing-sm) var(--spacing-xs);
   max-width: 600px;
   width: 100%;
   margin: var(--spacing-md) auto;
+}
+
+.word-slot {
+  position: relative;
+  width: 100%;
 }

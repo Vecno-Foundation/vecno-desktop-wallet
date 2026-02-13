@@ -919,6 +919,7 @@ pub fn app() -> Html {
                     </nav>
                     <div class="sidebar-footer">
                         <button onclick={exit_app_callback} class="exit-btn">
+                            <span aria-hidden="true"></span>
                             {"Exit"}
                         </button>
                     </div>
